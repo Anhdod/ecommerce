@@ -1,0 +1,443 @@
+﻿[
+    {
+        "name":  "admin_login_attempt_normaluser1",
+        "method":  "Post",
+        "url":  "http://localhost:8080/auth/login",
+        "status":  200,
+        "success":  true,
+        "message":  "OK",
+        "body":  {
+                     "success":  true,
+                     "message":  "ÄÄng nháº­p thÃ nh cÃ´ng",
+                     "data":  {
+                                  "success":  true,
+                                  "message":  "ÄÄng nháº­p thÃ nh cÃ´ng",
+                                  "token":  "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJub3JtYWx1c2VyMSIsImlhdCI6MTc4MDEwOTQ4NSwiZXhwIjoxNzgwMTk1ODg1fQ.gq-4B0UIXPYBvs171isi4-I11GhvhMkFL3rhBuKmvleLDjKTmYsqeuv289ULrsnWQiLRF_juJ9mIr14CwhlTIw",
+                                  "username":  "normaluser1",
+                                  "fullName":  "Normal User Final",
+                                  "role":  "ADMIN"
+                              },
+                     "timestamp":  "2026-05-30T09:51:25.0117741",
+                     "errorCode":  null
+                 },
+        "timestamp":  "2026-05-30T09:51:24.8977238+07:00"
+    },
+    {
+        "name":  "admin_login",
+        "method":  "Post",
+        "url":  "http://localhost:8080/auth/login",
+        "status":  200,
+        "success":  true,
+        "message":  "OK",
+        "body":  {
+                     "success":  true,
+                     "message":  "ÄÄng nháº­p thÃ nh cÃ´ng",
+                     "data":  {
+                                  "success":  true,
+                                  "message":  "ÄÄng nháº­p thÃ nh cÃ´ng",
+                                  "token":  "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJub3JtYWx1c2VyMSIsImlhdCI6MTc4MDEwOTQ4NSwiZXhwIjoxNzgwMTk1ODg1fQ.gq-4B0UIXPYBvs171isi4-I11GhvhMkFL3rhBuKmvleLDjKTmYsqeuv289ULrsnWQiLRF_juJ9mIr14CwhlTIw",
+                                  "username":  "normaluser1",
+                                  "fullName":  "Normal User Final",
+                                  "role":  "ADMIN"
+                              },
+                     "timestamp":  "2026-05-30T09:51:25.100382",
+                     "errorCode":  null
+                 },
+        "timestamp":  "2026-05-30T09:51:25.0277743+07:00"
+    },
+    {
+        "name":  "user_login",
+        "method":  "Post",
+        "url":  "http://localhost:8080/auth/login",
+        "status":  200,
+        "success":  true,
+        "message":  "OK",
+        "body":  {
+                     "success":  true,
+                     "message":  "ÄÄng nháº­p thÃ nh cÃ´ng",
+                     "data":  {
+                                  "success":  true,
+                                  "message":  "ÄÄng nháº­p thÃ nh cÃ´ng",
+                                  "token":  "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJub3JtYWx1c2VyMSIsImlhdCI6MTc4MDEwOTQ4NSwiZXhwIjoxNzgwMTk1ODg1fQ.gq-4B0UIXPYBvs171isi4-I11GhvhMkFL3rhBuKmvleLDjKTmYsqeuv289ULrsnWQiLRF_juJ9mIr14CwhlTIw",
+                                  "username":  "normaluser1",
+                                  "fullName":  "Normal User Final",
+                                  "role":  "ADMIN"
+                              },
+                     "timestamp":  "2026-05-30T09:51:25.1785496",
+                     "errorCode":  null
+                 },
+        "timestamp":  "2026-05-30T09:51:25.1033805+07:00"
+    },
+    {
+        "name":  "get_products",
+        "method":  "Get",
+        "url":  "http://localhost:8080/api/products",
+        "status":  200,
+        "success":  true,
+        "message":  "OK",
+        "body":  {
+                     "success":  true,
+                     "message":  "Láº¥y danh sÃ¡ch sáº£n pháº©m thÃ nh cÃ´ng",
+                     "data":  {
+                                  "content":  [
+                                                  {
+                                                      "id":  1,
+                                                      "name":  "Smartphone X",
+                                                      "description":  "Latest smartphone",
+                                                      "price":  699.99,
+                                                      "stockQuantity":  98,
+                                                      "imageUrl":  "/uploads/products/1_41893c7f-2287-40b0-8961-cfced9e0bc09.png",
+                                                      "categoryId":  1,
+                                                      "categoryName":  "Electronics Updated",
+                                                      "active":  true,
+                                                      "createdAt":  "2026-05-29T08:39:45",
+                                                      "likeCount":  1,
+                                                      "reviewCount":  1,
+                                                      "averageRating":  5.0,
+                                                      "likedByCurrentUser":  false
+                                                  }
+                                              ],
+                                  "empty":  false,
+                                  "first":  true,
+                                  "last":  true,
+                                  "number":  0,
+                                  "numberOfElements":  1,
+                                  "pageable":  {
+                                                   "offset":  0,
+                                                   "pageNumber":  0,
+                                                   "pageSize":  10,
+                                                   "paged":  true,
+                                                   "sort":  {
+                                                                "empty":  false,
+                                                                "sorted":  true,
+                                                                "unsorted":  false
+                                                            },
+                                                   "unpaged":  false
+                                               },
+                                  "size":  10,
+                                  "sort":  {
+                                               "empty":  false,
+                                               "sorted":  true,
+                                               "unsorted":  false
+                                           },
+                                  "totalElements":  1,
+                                  "totalPages":  1
+                              },
+                     "timestamp":  "2026-05-30T09:51:25.1885516",
+                     "errorCode":  null
+                 },
+        "timestamp":  "2026-05-30T09:51:25.1805486+07:00"
+    },
+    {
+        "name":  "get_categories",
+        "method":  "Get",
+        "url":  "http://localhost:8080/api/categories",
+        "status":  200,
+        "success":  true,
+        "message":  "OK",
+        "body":  {
+                     "success":  true,
+                     "message":  "Láº¥y danh sÃ¡ch danh má»¥c thÃ nh cÃ´ng",
+                     "data":  [
+                                  {
+                                      "id":  1,
+                                      "name":  "Electronics Updated",
+                                      "description":  "Updated description"
+                                  },
+                                  {
+                                      "id":  2,
+                                      "name":  "AutoCat",
+                                      "description":  "Created by test"
+                                  }
+                              ],
+                     "timestamp":  "2026-05-30T09:51:25.1955528",
+                     "errorCode":  null
+                 },
+        "timestamp":  "2026-05-30T09:51:25.1905502+07:00"
+    },
+    {
+        "name":  "get_product_1_public",
+        "method":  "Get",
+        "url":  "http://localhost:8080/api/products/1",
+        "status":  200,
+        "success":  true,
+        "message":  "OK",
+        "body":  {
+                     "success":  true,
+                     "message":  "Láº¥y chi tiáº¿t sáº£n pháº©m thÃ nh cÃ´ng",
+                     "data":  {
+                                  "id":  1,
+                                  "name":  "Smartphone X",
+                                  "description":  "Latest smartphone",
+                                  "price":  699.99,
+                                  "stockQuantity":  98,
+                                  "imageUrl":  "/uploads/products/1_41893c7f-2287-40b0-8961-cfced9e0bc09.png",
+                                  "categoryId":  1,
+                                  "categoryName":  "Electronics Updated",
+                                  "active":  true,
+                                  "createdAt":  "2026-05-29T08:39:45",
+                                  "likeCount":  1,
+                                  "reviewCount":  1,
+                                  "averageRating":  5.0,
+                                  "likedByCurrentUser":  false
+                              },
+                     "timestamp":  "2026-05-30T09:51:25.2035511",
+                     "errorCode":  null
+                 },
+        "timestamp":  "2026-05-30T09:51:25.1975492+07:00"
+    },
+    {
+        "name":  "add_to_cart",
+        "method":  "Post",
+        "url":  "http://localhost:8080/api/cart/add/1?quantity=1",
+        "status":  200,
+        "success":  true,
+        "message":  "OK",
+        "body":  {
+                     "success":  true,
+                     "message":  "ThÃªm vÃ o giá» hÃ ng thÃ nh cÃ´ng",
+                     "data":  {
+                                  "cartId":  1,
+                                  "userId":  3,
+                                  "items":  [
+                                                {
+                                                    "productId":  1,
+                                                    "productName":  "Smartphone X",
+                                                    "imageUrl":  "/uploads/products/1_41893c7f-2287-40b0-8961-cfced9e0bc09.png",
+                                                    "price":  699.99,
+                                                    "quantity":  8,
+                                                    "subtotal":  5599.92
+                                                }
+                                            ],
+                                  "totalPrice":  5599.92,
+                                  "totalItems":  1
+                              },
+                     "timestamp":  "2026-05-30T09:51:25.222553",
+                     "errorCode":  null
+                 },
+        "timestamp":  "2026-05-30T09:51:25.2065586+07:00"
+    },
+    {
+        "name":  "get_cart",
+        "method":  "Get",
+        "url":  "http://localhost:8080/api/cart",
+        "status":  200,
+        "success":  true,
+        "message":  "OK",
+        "body":  {
+                     "success":  true,
+                     "message":  "Láº¥y giá» hÃ ng thÃ nh cÃ´ng",
+                     "data":  {
+                                  "cartId":  1,
+                                  "userId":  3,
+                                  "items":  [
+                                                {
+                                                    "productId":  1,
+                                                    "productName":  "Smartphone X",
+                                                    "imageUrl":  "/uploads/products/1_41893c7f-2287-40b0-8961-cfced9e0bc09.png",
+                                                    "price":  699.99,
+                                                    "quantity":  8,
+                                                    "subtotal":  5599.92
+                                                }
+                                            ],
+                                  "totalPrice":  5599.92,
+                                  "totalItems":  1
+                              },
+                     "timestamp":  "2026-05-30T09:51:25.2325505",
+                     "errorCode":  null
+                 },
+        "timestamp":  "2026-05-30T09:51:25.2235581+07:00"
+    },
+    {
+        "name":  "create_review",
+        "method":  "Post",
+        "url":  "http://localhost:8080/api/products/1/reviews",
+        "status":  200,
+        "success":  true,
+        "message":  "OK",
+        "body":  {
+                     "success":  true,
+                     "message":  "Cáº­p nháº­t ÄÃ¡nh giÃ¡ thÃ nh cÃ´ng",
+                     "data":  {
+                                  "id":  2,
+                                  "productId":  1,
+                                  "username":  "normaluser1",
+                                  "fullName":  "Normal User Final",
+                                  "rating":  5,
+                                  "comment":  "Automated test review",
+                                  "createdAt":  "2026-05-30T09:40:41"
+                              },
+                     "timestamp":  "2026-05-30T09:51:25.2425575",
+                     "errorCode":  null
+                 },
+        "timestamp":  "2026-05-30T09:51:25.2335494+07:00"
+    },
+    {
+        "name":  "get_reviews",
+        "method":  "Get",
+        "url":  "http://localhost:8080/api/products/1/reviews",
+        "status":  200,
+        "success":  true,
+        "message":  "OK",
+        "body":  {
+                     "success":  true,
+                     "message":  "Láº¥y danh sÃ¡ch ÄÃ¡nh giÃ¡ thÃ nh cÃ´ng",
+                     "data":  {
+                                  "content":  [
+                                                  {
+                                                      "id":  2,
+                                                      "productId":  1,
+                                                      "username":  "normaluser1",
+                                                      "fullName":  "Normal User Final",
+                                                      "rating":  5,
+                                                      "comment":  "Automated test review",
+                                                      "createdAt":  "2026-05-30T09:40:41"
+                                                  }
+                                              ],
+                                  "empty":  false,
+                                  "first":  true,
+                                  "last":  true,
+                                  "number":  0,
+                                  "numberOfElements":  1,
+                                  "pageable":  {
+                                                   "offset":  0,
+                                                   "pageNumber":  0,
+                                                   "pageSize":  10,
+                                                   "paged":  true,
+                                                   "sort":  {
+                                                                "empty":  false,
+                                                                "sorted":  true,
+                                                                "unsorted":  false
+                                                            },
+                                                   "unpaged":  false
+                                               },
+                                  "size":  10,
+                                  "sort":  {
+                                               "empty":  false,
+                                               "sorted":  true,
+                                               "unsorted":  false
+                                           },
+                                  "totalElements":  1,
+                                  "totalPages":  1
+                              },
+                     "timestamp":  "2026-05-30T09:51:25.2505553",
+                     "errorCode":  null
+                 },
+        "timestamp":  "2026-05-30T09:51:25.2435580+07:00"
+    },
+    {
+        "name":  "create_address",
+        "method":  "Post",
+        "url":  "http://localhost:8080/api/users/addresses",
+        "status":  200,
+        "success":  true,
+        "message":  "OK",
+        "body":  {
+                     "success":  true,
+                     "message":  "Táº¡o Äá»a chá» thÃ nh cÃ´ng",
+                     "data":  {
+                                  "id":  7,
+                                  "label":  null,
+                                  "recipientName":  "Automated Tester",
+                                  "phoneNumber":  "0123456789",
+                                  "addressLine":  "123 Test St",
+                                  "city":  "TestCity",
+                                  "province":  "TestProvince",
+                                  "postalCode":  "12345",
+                                  "defaultAddress":  true,
+                                  "createdAt":  "2026-05-30T09:51:25.262071",
+                                  "updatedAt":  "2026-05-30T09:51:25.262071"
+                              },
+                     "timestamp":  "2026-05-30T09:51:25.2680645",
+                     "errorCode":  null
+                 },
+        "timestamp":  "2026-05-30T09:51:25.2520599+07:00"
+    },
+    {
+        "name":  "checkout_preview",
+        "method":  "Get",
+        "url":  "http://localhost:8080/api/orders/checkout-preview?shippingMethod=STANDARD\u0026addressId=7",
+        "status":  200,
+        "success":  true,
+        "message":  "OK",
+        "body":  {
+                     "success":  true,
+                     "message":  "Láº¥y preview checkout thÃ nh cÃ´ng",
+                     "data":  {
+                                  "cart":  {
+                                               "cartId":  1,
+                                               "userId":  3,
+                                               "items":  [
+                                                             {
+                                                                 "productId":  1,
+                                                                 "productName":  "Smartphone X",
+                                                                 "imageUrl":  "/uploads/products/1_41893c7f-2287-40b0-8961-cfced9e0bc09.png",
+                                                                 "price":  699.99,
+                                                                 "quantity":  8,
+                                                                 "subtotal":  5599.92
+                                                             }
+                                                         ],
+                                               "totalPrice":  5599.92,
+                                               "totalItems":  1
+                                           },
+                                  "shippingMethod":  "STANDARD",
+                                  "shippingFee":  15000,
+                                  "subtotal":  5599.92,
+                                  "grandTotal":  20599.92,
+                                  "defaultShippingAddressId":  7,
+                                  "defaultShippingAddress":  "123 Test St, TestCity, TestProvince - 12345",
+                                  "selectedShippingAddressId":  7,
+                                  "selectedShippingAddress":  "123 Test St, TestCity, TestProvince - 12345"
+                              },
+                     "timestamp":  "2026-05-30T09:51:25.2820642",
+                     "errorCode":  null
+                 },
+        "timestamp":  "2026-05-30T09:51:25.2710681+07:00"
+    },
+    {
+        "name":  "list_categories_for_admin_check",
+        "method":  "Get",
+        "url":  "http://localhost:8080/api/categories",
+        "status":  200,
+        "success":  true,
+        "message":  "OK",
+        "body":  {
+                     "success":  true,
+                     "message":  "Láº¥y danh sÃ¡ch danh má»¥c thÃ nh cÃ´ng",
+                     "data":  [
+                                  {
+                                      "id":  1,
+                                      "name":  "Electronics Updated",
+                                      "description":  "Updated description"
+                                  },
+                                  {
+                                      "id":  2,
+                                      "name":  "AutoCat",
+                                      "description":  "Created by test"
+                                  }
+                              ],
+                     "timestamp":  "2026-05-30T09:51:25.288068",
+                     "errorCode":  null
+                 },
+        "timestamp":  "2026-05-30T09:51:25.2840703+07:00"
+    },
+    {
+        "name":  "create_category",
+        "method":  "Post",
+        "url":  "http://localhost:8080/api/categories",
+        "status":  200,
+        "success":  true,
+        "message":  "Skipped (exists)",
+        "body":  null,
+        "timestamp":  "2026-05-30T09:51:25.2910725+07:00"
+    },
+    {
+        "name":  "upload_image",
+        "method":  "Post",
+        "url":  "http://localhost:8080/api/products/1/image",
+        "status":  200,
+        "success":  true,
+        "message":  "",
+        "timestamp":  "2026-05-30T09:51:25.3795264+07:00"
+    }
+]

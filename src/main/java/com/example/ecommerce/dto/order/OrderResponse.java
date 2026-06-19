@@ -18,11 +18,15 @@ public class OrderResponse {
     private Long orderId;
     private Long userId;
     private List<OrderItemResponse> items;
+    private BigDecimal subtotal;
+    private BigDecimal discountAmount;
+    private String couponCode;
     private BigDecimal totalPrice;
     private OrderStatus status;
     private ShippingMethod shippingMethod;
     private BigDecimal shippingFee;
     private String shippingAddress;
     private String phoneNumber;
+    private String trackingCode;
     private LocalDateTime createdAt;
 }

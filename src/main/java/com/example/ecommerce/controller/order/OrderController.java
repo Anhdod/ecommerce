@@ -29,7 +29,7 @@ public class OrderController {
         // ABC&phoneNumber=0123456789&paymentMethod=MOCK_CARD
 
         @PostMapping
-        @PreAuthorize("hasRole('USER')")
+        @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
         public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
                         @RequestParam String shippingAddress,
                         @RequestParam String phoneNumber,
@@ -42,7 +42,7 @@ public class OrderController {
         }
 
         @PostMapping("/checkout")
-        @PreAuthorize("hasRole('USER')")
+        @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
         public ResponseEntity<ApiResponse<OrderResponse>> checkout(
                         @Valid @RequestBody CheckoutRequest request) {
                 OrderResponse order = orderService.createOrder(request);
@@ -51,17 +51,19 @@ public class OrderController {
         }
 
         @GetMapping("/checkout-preview")
-        @PreAuthorize("hasRole('USER')")
+        @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
         public ResponseEntity<ApiResponse<CheckoutPreviewResponse>> getCheckoutPreview(
                         @RequestParam(required = false) ShippingMethod shippingMethod,
-                        @RequestParam(required = false) Long addressId) {
+                        @RequestParam(required = false) Long addressId,
+                        @RequestParam(required = false) String couponCode) {
                 return ResponseEntity.ok(
                                 ApiResponse.success("Lấy preview checkout thành công",
-                                                orderService.getCheckoutPreview(shippingMethod, addressId)));
+                                                orderService.getCheckoutPreview(shippingMethod, addressId,
+                                                                couponCode)));
         }
 
         @GetMapping
-        @PreAuthorize("hasRole('USER')")
+        @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
         public ResponseEntity<ApiResponse<List<OrderResponse>>> getMyOrders() {
                 return ResponseEntity.ok(
                                 ApiResponse.success("Lấy danh sách đơn hàng thành công",
@@ -69,7 +71,7 @@ public class OrderController {
         }
 
         @GetMapping("/{orderId}")
-        @PreAuthorize("hasAnyRole('USER','ADMIN')")
+        @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
         public ResponseEntity<ApiResponse<OrderResponse>> getOrderById(@PathVariable Long orderId) {
                 return ResponseEntity.ok(
                                 ApiResponse.success("Lấy chi tiết đơn hàng thành công",
@@ -77,7 +79,7 @@ public class OrderController {
         }
 
         @GetMapping("/{orderId}/history")
-        @PreAuthorize("hasAnyRole('USER','ADMIN')")
+        @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
         public ResponseEntity<ApiResponse<List<OrderStatusHistoryResponse>>> getOrderHistory(
                         @PathVariable Long orderId) {
                 return ResponseEntity.ok(
@@ -86,7 +88,7 @@ public class OrderController {
         }
 
         @GetMapping("/admin")
-        @PreAuthorize("hasRole('ADMIN')")
+        @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
         public ResponseEntity<ApiResponse<List<OrderResponse>>> getAllOrders() {
                 return ResponseEntity.ok(
                                 ApiResponse.success("Lấy danh sách đơn hàng admin thành công",
@@ -94,7 +96,7 @@ public class OrderController {
         }
 
         @PutMapping("/{orderId}")
-        @PreAuthorize("hasRole('USER')")
+        @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
         public ResponseEntity<ApiResponse<OrderResponse>> updateOrder(
                         @PathVariable Long orderId,
                         @RequestParam String shippingAddress,
@@ -106,7 +108,7 @@ public class OrderController {
         }
 
         @PutMapping("/{orderId}/details")
-        @PreAuthorize("hasRole('USER')")
+        @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
         public ResponseEntity<ApiResponse<OrderResponse>> updateOrderDetails(
                         @PathVariable Long orderId,
                         @Valid @RequestBody OrderUpdateRequest request) {
@@ -117,7 +119,7 @@ public class OrderController {
         }
 
         @PutMapping("/{id}/status")
-        @PreAuthorize("hasRole('ADMIN')")
+        @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
         public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(
                         @PathVariable Long id,
                         @RequestParam OrderStatus status) {
@@ -127,11 +129,31 @@ public class OrderController {
                                                 orderService.updateStatus(id, status)));
         }
 
+        @PutMapping("/{id}/tracking")
+        @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+        public ResponseEntity<ApiResponse<OrderResponse>> updateTrackingCode(
+                        @PathVariable Long id,
+                        @RequestParam String trackingCode) {
+
+                return ResponseEntity.ok(
+                                ApiResponse.success("Cap nhat ma van don thanh cong",
+                                                orderService.updateTrackingCode(id, trackingCode)));
+        }
+
         @DeleteMapping("/{orderId}")
-        @PreAuthorize("hasRole('USER')")
+        @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
         public ResponseEntity<ApiResponse<Void>> cancelOrder(@PathVariable Long orderId) {
                 orderService.cancelOrder(orderId);
                 return ResponseEntity.ok(
                                 ApiResponse.success("Hủy đơn hàng thành công", null));
         }
+
+        @PutMapping("/{orderId}/confirm-received")
+        @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
+        public ResponseEntity<ApiResponse<OrderResponse>> confirmReceived(@PathVariable Long orderId) {
+                return ResponseEntity.ok(
+                                ApiResponse.success("Xác nhận đã nhận hàng thành công",
+                                                orderService.confirmReceived(orderId)));
+        }
 }
+

@@ -1,6 +1,9 @@
 package com.example.ecommerce.service.admin;
 
 import com.example.ecommerce.dto.admin.AdminDashboardResponse;
+import com.example.ecommerce.dto.admin.OrderStatusStatResponse;
+import com.example.ecommerce.dto.admin.RevenuePointResponse;
+import com.example.ecommerce.dto.admin.TopCustomerResponse;
 import com.example.ecommerce.entity.order.OrderStatus;
 import com.example.ecommerce.entity.payment.PaymentStatus;
 import com.example.ecommerce.repository.order.OrderRepository;
@@ -11,6 +14,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 @Service
 public class AdminDashboardService {
@@ -62,5 +71,54 @@ public class AdminDashboardService {
             limit = 5;
         return orderItemRepository
                 .findTopSellingProducts(org.springframework.data.domain.PageRequest.of(0, Math.min(limit, 100)));
+    }
+
+    public List<RevenuePointResponse> getRevenueTimeline(String groupBy, LocalDate from, LocalDate to) {
+        boolean monthly = "month".equalsIgnoreCase(groupBy);
+        DateTimeFormatter formatter = monthly ? DateTimeFormatter.ofPattern("yyyy-MM") : DateTimeFormatter.ISO_DATE;
+        Map<String, RevenueAccumulator> grouped = new TreeMap<>();
+
+        paymentRepository.findByStatus(PaymentStatus.PAID).stream()
+                .filter(payment -> payment.getPaymentDate() != null)
+                .filter(payment -> from == null || !payment.getPaymentDate().toLocalDate().isBefore(from))
+                .filter(payment -> to == null || !payment.getPaymentDate().toLocalDate().isAfter(to))
+                .forEach(payment -> {
+                    String period = monthly
+                            ? YearMonth.from(payment.getPaymentDate()).format(formatter)
+                            : payment.getPaymentDate().toLocalDate().format(formatter);
+                    RevenueAccumulator accumulator = grouped.computeIfAbsent(period, key -> new RevenueAccumulator());
+                    accumulator.revenue = accumulator.revenue
+                            .add(payment.getAmount() == null ? BigDecimal.ZERO : payment.getAmount());
+                    accumulator.paymentCount++;
+                });
+
+        return grouped.entrySet().stream()
+                .map(entry -> RevenuePointResponse.builder()
+                        .period(entry.getKey())
+                        .revenue(entry.getValue().revenue)
+                        .paymentCount(entry.getValue().paymentCount)
+                        .build())
+                .toList();
+    }
+
+    public List<OrderStatusStatResponse> getOrderStatusStats() {
+        return java.util.Arrays.stream(OrderStatus.values())
+                .map(status -> OrderStatusStatResponse.builder()
+                        .status(status)
+                        .total(orderRepository.countByStatus(status))
+                        .build())
+                .toList();
+    }
+
+    public List<TopCustomerResponse> getTopCustomers(int limit) {
+        if (limit <= 0) {
+            limit = 5;
+        }
+        return orderRepository.findTopCustomers(org.springframework.data.domain.PageRequest.of(0, Math.min(limit, 100)));
+    }
+
+    private static class RevenueAccumulator {
+        private BigDecimal revenue = BigDecimal.ZERO;
+        private long paymentCount;
     }
 }

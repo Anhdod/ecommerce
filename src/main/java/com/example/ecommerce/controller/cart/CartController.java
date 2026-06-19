@@ -18,7 +18,7 @@ public class CartController {
 
     // Lấy giỏ hàng của tôi
     @GetMapping
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<CartResponse>> getMyCart() {
         CartResponse cart = cartService.getMyCart();
         return ResponseEntity.ok(ApiResponse.success("Lấy giỏ hàng thành công", cart));
@@ -26,33 +26,33 @@ public class CartController {
 
     // Thêm sản phẩm vào giỏ hàng
     @PostMapping("/add/{productId}")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<CartResponse>> addToCart(
             @PathVariable Long productId,
             @RequestParam(defaultValue = "1") int quantity) {
-        
+
         CartResponse cart = cartService.addToCart(productId, quantity);
         return ResponseEntity.ok(ApiResponse.success("Thêm vào giỏ hàng thành công", cart));
     }
+
     @DeleteMapping("/remove/{productId}")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<CartResponse>> removeFromCart(
             @PathVariable Long productId) {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Xóa khỏi giỏ hàng thành công",
-                        cartService.removeFromCart(productId))
-        );
+                        cartService.removeFromCart(productId)));
     }
+
     @PutMapping("/update/{productId}")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<CartResponse>> updateQuantity(
             @PathVariable Long productId,
             @RequestParam int quantity) {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Cập nhật số lượng thành công",
-                        cartService.updateQuantity(productId, quantity))
-        );
+                        cartService.updateQuantity(productId, quantity)));
     }
 }

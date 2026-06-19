@@ -1,6 +1,7 @@
 package com.example.ecommerce.service.order;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 import com.example.ecommerce.dto.order.CheckoutRequest;
 import com.example.ecommerce.dto.order.OrderItemResponse;
@@ -18,6 +19,7 @@ import com.example.ecommerce.entity.order.OrderStatus;
 import com.example.ecommerce.entity.order.ShippingMethod;
 import com.example.ecommerce.entity.payment.PaymentMethod;
 import com.example.ecommerce.entity.auth.Role;
+import com.example.ecommerce.entity.coupon.Coupon;
 import com.example.ecommerce.entity.product.Product;
 import com.example.ecommerce.repository.auth.UserRepository;
 import com.example.ecommerce.repository.cart.CartRepository;
@@ -26,7 +28,12 @@ import com.example.ecommerce.service.auth.AddressService;
 import com.example.ecommerce.service.cart.CartService;
 import com.example.ecommerce.service.payment.PaymentService;
 import com.example.ecommerce.service.order.OrderStatusHistoryService;
+import com.example.ecommerce.service.coupon.CouponService;
 import com.example.ecommerce.dto.order.OrderStatusHistoryResponse;
+import com.example.ecommerce.service.inventory.InventoryService;
+import com.example.ecommerce.entity.inventory.StockMovementType;
+import com.example.ecommerce.service.notification.NotificationService;
+import com.example.ecommerce.entity.notification.NotificationType;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -60,6 +67,15 @@ public class OrderService {
 
     @Autowired
     private OrderStatusHistoryService orderStatusHistoryService;
+
+    @Autowired
+    private CouponService couponService;
+
+    @Autowired
+    private InventoryService inventoryService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     // ================= CREATE ORDER + PAYMENT =================
     @Transactional
@@ -115,6 +131,7 @@ public class OrderService {
                 .user(user)
                 .shippingAddress(shippingAddress)
                 .phoneNumber(phoneNumber)
+                .trackingCode(generateTrackingCode())
                 .status(OrderStatus.PENDING)
                 .items(new ArrayList<>())
                 .shippingMethod(shippingMethod)
@@ -131,21 +148,33 @@ public class OrderService {
             order.getItems().add(orderItem);
 
             Product product = cartItem.getProduct();
-            if (product.getStockQuantity() < cartItem.getQuantity()) {
-                throw new RuntimeException("Sản phẩm không đủ tồn kho: " + product.getName());
-            }
-            product.setStockQuantity(product.getStockQuantity() - cartItem.getQuantity());
+            inventoryService.recordMovement(
+                    product,
+                    -cartItem.getQuantity(),
+                    StockMovementType.SALE,
+                    "Order creation",
+                    "Deduct stock for pending order item");
         }
 
         BigDecimal subtotal = order.calculateTotalPrice();
+        Coupon coupon = couponService.getValidCoupon(request.getCouponCode(), subtotal);
+        BigDecimal discountAmount = couponService.calculateDiscount(coupon, subtotal);
         BigDecimal shippingFee = calculateShippingFee(shippingMethod, subtotal);
+        order.setSubtotal(subtotal);
+        order.setDiscountAmount(discountAmount);
+        order.setCouponCode(coupon != null ? coupon.getCode() : null);
         order.setShippingFee(shippingFee);
-        order.setTotalPrice(subtotal.add(shippingFee));
+        order.setTotalPrice(subtotal.subtract(discountAmount).add(shippingFee));
 
         Order savedOrder = orderRepository.save(order);
         orderStatusHistoryService.recordStatusChange(savedOrder, null, savedOrder.getStatus(), "Đơn hàng được tạo");
 
+        couponService.markUsed(coupon);
         paymentService.createPayment(savedOrder, request.getPaymentMethod());
+        notificationService.createNotification(user, NotificationType.ORDER,
+                "Đơn hàng đã được tạo",
+                "Đơn hàng #" + savedOrder.getId() + " đang chờ xử lý.",
+                "/orders/" + savedOrder.getId());
 
         cart.getItems().clear();
         cartRepository.save(cart);
@@ -198,7 +227,9 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
-        if (!order.getUser().getId().equals(user.getId()) && user.getRole() != Role.ADMIN) {
+        if (!order.getUser().getId().equals(user.getId())
+                && user.getRole() != Role.ADMIN
+                && user.getRole() != Role.STAFF) {
             throw new RuntimeException("Không có quyền xem đơn hàng này");
         }
 
@@ -213,7 +244,9 @@ public class OrderService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
 
-        if (!order.getUser().getId().equals(user.getId()) && user.getRole() != Role.ADMIN) {
+        if (!order.getUser().getId().equals(user.getId())
+                && user.getRole() != Role.ADMIN
+                && user.getRole() != Role.STAFF) {
             throw new RuntimeException("Không có quyền xem lịch sử đơn hàng này");
         }
 
@@ -226,13 +259,16 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
-    public CheckoutPreviewResponse getCheckoutPreview(ShippingMethod shippingMethod, Long addressId) {
+    public CheckoutPreviewResponse getCheckoutPreview(ShippingMethod shippingMethod, Long addressId,
+            String couponCode) {
         if (shippingMethod == null) {
             shippingMethod = ShippingMethod.STANDARD;
         }
 
         CartResponse cartResponse = cartService.getMyCart();
         BigDecimal subtotal = cartResponse.getTotalPrice() == null ? BigDecimal.ZERO : cartResponse.getTotalPrice();
+        Coupon coupon = couponService.getValidCoupon(couponCode, subtotal);
+        BigDecimal discountAmount = couponService.calculateDiscount(coupon, subtotal);
         BigDecimal shippingFee = calculateShippingFee(shippingMethod, subtotal);
 
         Address defaultAddress = addressService.getDefaultAddressEntity();
@@ -258,7 +294,9 @@ public class OrderService {
                 .shippingMethod(shippingMethod)
                 .shippingFee(shippingFee)
                 .subtotal(subtotal)
-                .grandTotal(subtotal.add(shippingFee))
+                .couponCode(coupon != null ? coupon.getCode() : null)
+                .discountAmount(discountAmount)
+                .grandTotal(subtotal.subtract(discountAmount).add(shippingFee))
                 .defaultShippingAddressId(defaultShippingAddressId)
                 .defaultShippingAddress(defaultShippingAddress)
                 .selectedShippingAddressId(addressId)
@@ -322,7 +360,10 @@ public class OrderService {
         }
 
         BigDecimal subtotal = order.calculateTotalPrice();
-        order.setTotalPrice(subtotal.add(order.getShippingFee() == null ? BigDecimal.ZERO : order.getShippingFee()));
+        BigDecimal discount = order.getDiscountAmount() == null ? BigDecimal.ZERO : order.getDiscountAmount();
+        order.setSubtotal(subtotal);
+        order.setTotalPrice(subtotal.subtract(discount)
+                .add(order.getShippingFee() == null ? BigDecimal.ZERO : order.getShippingFee()));
 
         return convertToResponse(orderRepository.save(order));
     }
@@ -334,6 +375,7 @@ public class OrderService {
                 .build());
     }
 
+    @Transactional
     public OrderResponse updateStatus(Long orderId, OrderStatus status) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
@@ -343,6 +385,30 @@ public class OrderService {
         Order updatedOrder = orderRepository.save(order);
         orderStatusHistoryService.recordStatusChange(updatedOrder, oldStatus, status,
                 "Admin cập nhật trạng thái đơn hàng");
+        notificationService.createNotification(order.getUser(), NotificationType.ORDER,
+                "Cập nhật trạng thái đơn hàng",
+                "Đơn hàng #" + order.getId() + " đã chuyển sang trạng thái " + status,
+                "/orders/" + order.getId());
+        return convertToResponse(updatedOrder);
+    }
+
+    @Transactional
+    public OrderResponse updateTrackingCode(Long orderId, String trackingCode) {
+        if (trackingCode == null || trackingCode.isBlank()) {
+            throw new RuntimeException("Ma van don khong duoc de trong");
+        }
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Khong tim thay don hang"));
+
+        order.setTrackingCode(trackingCode.trim());
+        Order updatedOrder = orderRepository.save(order);
+        orderStatusHistoryService.recordStatusChange(updatedOrder, order.getStatus(), order.getStatus(),
+                "Admin cap nhat ma van don: " + updatedOrder.getTrackingCode());
+        notificationService.createNotification(order.getUser(), NotificationType.ORDER,
+                "Cap nhat ma van don",
+                "Don hang #" + order.getId() + " co ma van don moi: " + updatedOrder.getTrackingCode(),
+                "/orders/" + order.getId());
         return convertToResponse(updatedOrder);
     }
 
@@ -368,17 +434,58 @@ public class OrderService {
             throw new RuntimeException("Không thể hủy đơn ở trạng thái này");
         }
 
-        // Hoàn lại stock
         for (OrderItem item : order.getItems()) {
             Product product = item.getProduct();
-            product.setStockQuantity(product.getStockQuantity() + item.getQuantity());
+            inventoryService.recordMovement(
+                    product,
+                    item.getQuantity(),
+                    StockMovementType.RETURN,
+                    "Order cancel",
+                    "Restore stock after cancellation");
         }
-
         OrderStatus oldStatus = order.getStatus();
         order.setStatus(OrderStatus.CANCELLED);
         Order cancelledOrder = orderRepository.save(order);
         orderStatusHistoryService.recordStatusChange(cancelledOrder, oldStatus, OrderStatus.CANCELLED,
                 "Người dùng hủy đơn hàng");
+        notificationService.createNotification(user, NotificationType.ORDER,
+                "Đơn hàng đã bị hủy",
+                "Đơn hàng #" + order.getId() + " đã được hủy và hoàn kho.",
+                "/orders/" + order.getId());
+    }
+
+    @Transactional
+    public OrderResponse confirmReceived(Long orderId) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+        if (!order.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Không có quyền xác nhận đơn này");
+        }
+
+        if (order.getStatus() != OrderStatus.SHIPPING) {
+            throw new RuntimeException("Chỉ xác nhận khi đơn đang giao hàng");
+        }
+
+        OrderStatus oldStatus = order.getStatus();
+        order.setStatus(OrderStatus.DELIVERED);
+        Order updatedOrder = orderRepository.save(order);
+        orderStatusHistoryService.recordStatusChange(updatedOrder, oldStatus, OrderStatus.DELIVERED,
+                "Người dùng xác nhận đã nhận hàng");
+        notificationService.createNotification(user, NotificationType.ORDER,
+                "Đã xác nhận nhận hàng",
+                "Đơn hàng #" + order.getId() + " đã được xác nhận hoàn tất.",
+                "/orders/" + order.getId());
+        return convertToResponse(updatedOrder);
+    }
+
+    private String generateTrackingCode() {
+        return "TRK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
     // ================= CONVERT =================
@@ -398,13 +505,19 @@ public class OrderService {
                 .orderId(order.getId())
                 .userId(order.getUser().getId())
                 .items(items)
+                .subtotal(order.getSubtotal() == null ? order.calculateTotalPrice() : order.getSubtotal())
+                .discountAmount(order.getDiscountAmount() == null ? BigDecimal.ZERO : order.getDiscountAmount())
+                .couponCode(order.getCouponCode())
                 .totalPrice(order.getTotalPrice())
                 .status(order.getStatus())
                 .shippingMethod(order.getShippingMethod())
                 .shippingFee(order.getShippingFee())
                 .shippingAddress(order.getShippingAddress())
                 .phoneNumber(order.getPhoneNumber())
+                .trackingCode(order.getTrackingCode())
                 .createdAt(order.getCreatedAt())
                 .build();
     }
 }
+
+

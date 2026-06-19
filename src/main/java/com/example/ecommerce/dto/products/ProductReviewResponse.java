@@ -17,5 +17,7 @@ public class ProductReviewResponse {
     private String fullName;
     private int rating;
     private String comment;
+    private String imageUrl;
+    private boolean hidden;
     private LocalDateTime createdAt;
 }

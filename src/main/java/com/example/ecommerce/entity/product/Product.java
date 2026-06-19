@@ -38,6 +38,9 @@ public class Product {
     @Builder.Default
     private boolean active = true;
 
+    @Builder.Default
+    private boolean featured = false;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

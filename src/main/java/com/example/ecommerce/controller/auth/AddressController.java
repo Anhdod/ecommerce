@@ -20,34 +20,34 @@ public class AddressController {
     private AddressService addressService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<List<AddressResponse>>> getMyAddresses() {
         return ResponseEntity
                 .ok(ApiResponse.success("Lấy danh sách địa chỉ thành công", addressService.getMyAddresses()));
     }
 
     @GetMapping("/{addressId}")
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<AddressResponse>> getAddressById(@PathVariable Long addressId) {
         return ResponseEntity
                 .ok(ApiResponse.success("Lấy địa chỉ thành công", addressService.getAddressById(addressId)));
     }
 
     @GetMapping("/default")
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<AddressResponse>> getDefaultAddress() {
         return ResponseEntity
                 .ok(ApiResponse.success("Lấy địa chỉ mặc định thành công", addressService.getDefaultAddress()));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<AddressResponse>> createAddress(@Valid @RequestBody AddressRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Tạo địa chỉ thành công", addressService.createAddress(request)));
     }
 
     @PutMapping("/{addressId}")
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<AddressResponse>> updateAddress(
             @PathVariable Long addressId,
             @Valid @RequestBody AddressRequest request) {
@@ -56,16 +56,17 @@ public class AddressController {
     }
 
     @PutMapping("/{addressId}/default")
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<AddressResponse>> setDefaultAddress(@PathVariable Long addressId) {
         return ResponseEntity.ok(
                 ApiResponse.success("Đặt địa chỉ mặc định thành công", addressService.setDefaultAddress(addressId)));
     }
 
     @DeleteMapping("/{addressId}")
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteAddress(@PathVariable Long addressId) {
         addressService.deleteAddress(addressId);
         return ResponseEntity.ok(ApiResponse.success("Xóa địa chỉ thành công", null));
     }
 }
+

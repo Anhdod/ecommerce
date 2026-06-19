@@ -23,10 +23,17 @@ public class CategoryService {
                 .collect(Collectors.toList());
     }
 
+    public List<CategoryResponse> getFeaturedCategories() {
+        return categoryRepository.findByFeaturedTrueOrderByCreatedAtDesc().stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
     public CategoryResponse createCategory(CategoryRequest request) {
         Category category = Category.builder()
                 .name(request.getName())
                 .description(request.getDescription())
+                .featured(request.getFeatured() != null && request.getFeatured())
                 .build();
         return convertToResponse(categoryRepository.save(category));
     }
@@ -37,6 +44,9 @@ public class CategoryService {
 
         category.setName(request.getName());
         category.setDescription(request.getDescription());
+        if (request.getFeatured() != null) {
+            category.setFeatured(request.getFeatured());
+        }
         return convertToResponse(categoryRepository.save(category));
     }
 
@@ -51,6 +61,7 @@ public class CategoryService {
                 .id(category.getId())
                 .name(category.getName())
                 .description(category.getDescription())
+                .featured(category.isFeatured())
                 .build();
     }
 }

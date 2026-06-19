@@ -33,6 +33,13 @@ public class ProductReview {
     @Column(length = 1000)
     private String comment;
 
+    @Column(length = 255)
+    private String imageUrl;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean hidden = false;
+
     private LocalDateTime createdAt;
 
     @PrePersist

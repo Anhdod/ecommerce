@@ -20,9 +20,11 @@ public class ProductResponse {
     private Long categoryId;
     private String categoryName;
     private boolean active;
+    private boolean featured;
     private LocalDateTime createdAt;
     private long likeCount;
     private int reviewCount;
     private double averageRating;   
     private boolean isLikedByCurrentUser;
+    private long salesCount;
 }

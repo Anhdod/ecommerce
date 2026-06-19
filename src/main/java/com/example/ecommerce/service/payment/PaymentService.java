@@ -12,6 +12,8 @@ import com.example.ecommerce.repository.order.OrderRepository;
 import com.example.ecommerce.repository.payment.PaymentRepository;
 import com.example.ecommerce.repository.auth.UserRepository;
 import com.example.ecommerce.service.order.OrderStatusHistoryService;
+import com.example.ecommerce.service.notification.NotificationService;
+import com.example.ecommerce.entity.notification.NotificationType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,9 @@ public class PaymentService {
 
     @Autowired
     private OrderStatusHistoryService orderStatusHistoryService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     // Tạo Payment khi tạo đơn hàng (gọi từ OrderService)
     @Transactional
@@ -85,6 +90,10 @@ public class PaymentService {
         orderRepository.save(order);
         orderStatusHistoryService.recordStatusChange(order, OrderStatus.PENDING, OrderStatus.CONFIRMED,
                 "Thanh toán thành công");
+        notificationService.createNotification(user, NotificationType.PAYMENT,
+                "Thanh toán thành công",
+                "Thanh toán cho đơn hàng #" + orderId + " đã hoàn tất.",
+                "/orders/" + orderId);
 
         return ApiResponse.success("Thanh toán thành công cho đơn hàng #" + orderId, null);
     }
@@ -108,6 +117,10 @@ public class PaymentService {
         orderRepository.save(order);
         orderStatusHistoryService.recordStatusChange(order, OrderStatus.PENDING, OrderStatus.CONFIRMED,
                 "Admin xác nhận thanh toán");
+        notificationService.createNotification(order.getUser(), NotificationType.PAYMENT,
+                "Thanh toán được xác nhận",
+                "Thanh toán cho đơn hàng #" + order.getId() + " đã được xác nhận.",
+                "/orders/" + order.getId());
 
         return ApiResponse.success("Admin đã xác nhận thanh toán thành công", null);
     }

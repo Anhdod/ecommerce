@@ -21,6 +21,8 @@ public class CheckoutPreviewResponse {
     private ShippingMethod shippingMethod;
     private BigDecimal shippingFee;
     private BigDecimal subtotal;
+    private String couponCode;
+    private BigDecimal discountAmount;
     private BigDecimal grandTotal;
     private Long defaultShippingAddressId;
     private String defaultShippingAddress;

@@ -18,6 +18,15 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.UUID;
 
 @Service
 public class ProductReviewService {
@@ -30,6 +39,9 @@ public class ProductReviewService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Value("${upload.review.dir:uploads/reviews}")
+    private String reviewUploadDir;
 
     @Transactional
     public ApiResponse<ProductReviewResponse> createOrUpdateReview(Long productId, ProductReviewRequest request) {
@@ -71,13 +83,24 @@ public class ProductReviewService {
 
     public Page<ProductReviewResponse> getReviewsByProduct(Long productId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<ProductReview> reviews = reviewRepository.findByProductIdAndHiddenFalse(productId, pageable);
+        return reviews.map(this::convertToResponse);
+    }
+
+    public Page<ProductReviewResponse> getReviewsByProductForAdmin(Long productId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<ProductReview> reviews = reviewRepository.findByProductId(productId, pageable);
         return reviews.map(this::convertToResponse);
     }
 
+    public Page<ProductReviewResponse> getAllReviews(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return reviewRepository.findAll(pageable).map(this::convertToResponse);
+    }
+
     // Lấy tổng số review
     public long getReviewCount(Long productId) {
-        return reviewRepository.countByProductId(productId);
+        return reviewRepository.countByProductIdAndHiddenFalse(productId);
     }
 
     // Tính trung bình rating
@@ -98,16 +121,27 @@ public class ProductReviewService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy review"));
 
         boolean isOwner = review.getUser().getId().equals(user.getId());
-        boolean isAdmin = "ADMIN".equals(user.getRole());
+        boolean isModerator = "ADMIN".equals(user.getRole()) || "STAFF".equals(user.getRole());
 
-        if (!isOwner && !isAdmin) {
+        if (!isOwner && !isModerator) {
             throw new RuntimeException("Bạn không có quyền xóa review này");
         }
 
+        deletePhysicalFile(review.getImageUrl());
         reviewRepository.delete(review);
 
         return ApiResponse.success("Đã xóa review thành công", null);
     }
+    @Transactional
+    public ApiResponse<ProductReviewResponse> setReviewHidden(Long reviewId, boolean hidden) {
+        ProductReview review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new RuntimeException("Khong tim thay review"));
+
+        review.setHidden(hidden);
+        ProductReview saved = reviewRepository.save(review);
+        return ApiResponse.success(hidden ? "Da an review" : "Da hien review", convertToResponse(saved));
+    }
+
     @Transactional
     public ApiResponse<ProductReviewResponse> updateReview(Long productId, ProductReviewRequest request) {
 
@@ -128,6 +162,45 @@ public class ProductReviewService {
         return ApiResponse.success("Cập nhật đánh giá thành công", convertToResponse(review));
     }
 
+    @Transactional
+    public ApiResponse<ProductReviewResponse> uploadReviewImage(Long productId, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new RuntimeException("File ảnh không được để trống");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new RuntimeException("Chỉ chấp nhận file ảnh");
+        }
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
+
+        ProductReview review = reviewRepository.findByProductIdAndUserId(productId, user.getId())
+                .orElseThrow(() -> new RuntimeException("Bạn chưa đánh giá sản phẩm này"));
+
+        try {
+            Path uploadPath = Paths.get(reviewUploadDir);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+
+            deletePhysicalFile(review.getImageUrl());
+
+            String extension = extractExtension(file.getOriginalFilename());
+            String fileName = "review_" + review.getId() + "_" + UUID.randomUUID() + extension;
+            Path filePath = uploadPath.resolve(fileName);
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+            review.setImageUrl("/uploads/reviews/" + fileName);
+            review = reviewRepository.save(review);
+            return ApiResponse.success("Tải ảnh review thành công", convertToResponse(review));
+        } catch (IOException e) {
+            throw new RuntimeException("Upload ảnh thất bại: " + e.getMessage(), e);
+        }
+    }
+
     private ProductReviewResponse convertToResponse(ProductReview review) {
         return ProductReviewResponse.builder()
                 .id(review.getId())
@@ -136,8 +209,37 @@ public class ProductReviewService {
                 .fullName(review.getUser().getFullName())
                 .rating(review.getRating())
                 .comment(review.getComment())
+                .imageUrl(review.getImageUrl())
+                .hidden(review.isHidden())
                 .createdAt(review.getCreatedAt())
                 .build();
+    }
+
+    private String extractExtension(String originalFilename) {
+        if (originalFilename == null || originalFilename.isBlank()) {
+            return "";
+        }
+
+        int dotIndex = originalFilename.lastIndexOf('.');
+        if (dotIndex < 0 || dotIndex == originalFilename.length() - 1) {
+            return "";
+        }
+
+        return originalFilename.substring(dotIndex);
+    }
+
+    private void deletePhysicalFile(String imageUrl) {
+        if (imageUrl == null || imageUrl.isBlank()) {
+            return;
+        }
+
+        try {
+            String fileName = Paths.get(imageUrl).getFileName().toString();
+            Path filePath = Paths.get(reviewUploadDir).resolve(fileName);
+            Files.deleteIfExists(filePath);
+        } catch (Exception ignored) {
+            // Best-effort cleanup only.
+        }
     }
 
 }

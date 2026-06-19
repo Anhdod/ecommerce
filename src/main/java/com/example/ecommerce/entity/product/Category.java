@@ -25,6 +25,9 @@ public class Category {
 
     private String description;
 
+    @Builder.Default
+    private boolean featured = false;
+
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Product> products = new ArrayList<>();

@@ -24,4 +24,5 @@ public class CheckoutRequest {
     private PaymentMethod paymentMethod;
 
     private ShippingMethod shippingMethod;
+    private String couponCode;
 }

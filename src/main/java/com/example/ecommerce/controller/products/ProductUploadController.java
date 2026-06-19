@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 @RestController
@@ -28,7 +29,7 @@ public class ProductUploadController {
 
     // 1. Upload ảnh mới
     @PostMapping("/{productId}/image")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<ApiResponse<String>> uploadProductImage(
             @PathVariable Long productId,
             @RequestParam("file") MultipartFile file) {
@@ -38,7 +39,7 @@ public class ProductUploadController {
 
     // 2. Thay ảnh mới
     @PutMapping("/{productId}/image")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<ApiResponse<String>> updateProductImage(
             @PathVariable Long productId,
             @RequestParam("file") MultipartFile file) {
@@ -48,10 +49,12 @@ public class ProductUploadController {
 
     // 3. Xóa ảnh
     @DeleteMapping("/{productId}/image")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<ApiResponse<String>> deleteProductImage(@PathVariable Long productId) {
+        String previousImageUrl = productService.getProductById(productId).getImageUrl();
         boolean success = productService.deleteProductImage(productId);
         if (success) {
+            deletePhysicalFile(previousImageUrl);
             return ResponseEntity.ok(ApiResponse.success("Xóa ảnh thành công", null));
         }
         return ResponseEntity.badRequest().body(ApiResponse.error("Không tìm thấy ảnh hoặc không có quyền"));
@@ -73,16 +76,18 @@ public class ProductUploadController {
                 Files.createDirectories(uploadPath);
             }
 
-            String extension = file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf("."));
+            String previousImageUrl = productService.getProductById(productId).getImageUrl();
+            String extension = extractExtension(file.getOriginalFilename());
             String newFileName = productId + "_" + UUID.randomUUID() + extension;
 
             Path filePath = uploadPath.resolve(newFileName);
-            Files.copy(file.getInputStream(), filePath);
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
             String imageUrl = "/uploads/products/" + newFileName;
 
             // Cập nhật ảnh vào sản phẩm
             productService.updateProductImage(productId, imageUrl);
+            deletePhysicalFile(previousImageUrl);
 
             return ResponseEntity.ok(ApiResponse.success("Cập nhật ảnh thành công", imageUrl));
 
@@ -92,4 +97,32 @@ public class ProductUploadController {
                     .body(ApiResponse.error("Upload ảnh thất bại: " + e.getMessage()));
         }
     }
+
+    private String extractExtension(String originalFilename) {
+        if (originalFilename == null || originalFilename.isBlank()) {
+            return "";
+        }
+
+        int dotIndex = originalFilename.lastIndexOf('.');
+        if (dotIndex < 0 || dotIndex == originalFilename.length() - 1) {
+            return "";
+        }
+
+        return originalFilename.substring(dotIndex);
+    }
+
+    private void deletePhysicalFile(String imageUrl) {
+        if (imageUrl == null || imageUrl.isBlank()) {
+            return;
+        }
+
+        try {
+            String fileName = Paths.get(imageUrl).getFileName().toString();
+            Path filePath = Paths.get(uploadDir).resolve(fileName);
+            Files.deleteIfExists(filePath);
+        } catch (Exception ignored) {
+            // Best-effort cleanup only.
+        }
+    }
 }
+

@@ -1,12 +1,15 @@
 package com.example.ecommerce.controller.products;
 
 import com.example.ecommerce.dto.ApiResponse;
+import com.example.ecommerce.dto.products.ProductResponse;
 import com.example.ecommerce.service.products.ProductLikeService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/products")
@@ -17,7 +20,7 @@ public class ProductLikeController {
 
     // Toggle Like / Unlike
     @PostMapping("/{productId}/like")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<String>> toggleLike(@PathVariable Long productId) {
         ApiResponse<String> response = productLikeService.toggleLike(productId);
         return ResponseEntity.ok(response);
@@ -32,4 +35,11 @@ public class ProductLikeController {
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy số lượt thích thành công", count));
     }
+    @GetMapping("/wishlist")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
+    public ResponseEntity<ApiResponse<List<ProductResponse>>> getWishlist() {
+        return ResponseEntity.ok(ApiResponse.success("Lay danh sach yeu thich thanh cong",
+                productLikeService.getMyLikedProducts()));
+    }
 }
+

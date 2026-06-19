@@ -36,6 +36,14 @@ public class Order {
 
     private BigDecimal totalPrice;
 
+    @Builder.Default
+    private BigDecimal subtotal = BigDecimal.ZERO;
+
+    @Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    private String couponCode;
+
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private ShippingMethod shippingMethod = ShippingMethod.STANDARD;
@@ -45,6 +53,7 @@ public class Order {
 
     private String shippingAddress;
     private String phoneNumber;
+    private String trackingCode;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

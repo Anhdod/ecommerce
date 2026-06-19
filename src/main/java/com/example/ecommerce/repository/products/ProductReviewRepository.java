@@ -15,12 +15,14 @@ public interface ProductReviewRepository extends JpaRepository<ProductReview, Lo
 
     Page<ProductReview> findByProductId(Long productId, Pageable pageable);
 
+    Page<ProductReview> findByProductIdAndHiddenFalse(Long productId, Pageable pageable);
+
     Optional<ProductReview> findByProductIdAndUserId(Long productId, Long userId);
 
     boolean existsByProductIdAndUserId(Long productId, Long userId);
 
-    @Query("SELECT AVG(r.rating) FROM ProductReview r WHERE r.product.id = :productId")
+    @Query("SELECT AVG(r.rating) FROM ProductReview r WHERE r.product.id = :productId AND r.hidden = false")
     Double getAverageRatingByProductId(Long productId);
 
-    long countByProductId(Long productId);
+    long countByProductIdAndHiddenFalse(Long productId);
 }

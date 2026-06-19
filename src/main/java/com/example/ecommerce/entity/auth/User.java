@@ -33,7 +33,7 @@ public class User implements UserDetails {
 
     private String fullName;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private Role role = Role.USER;

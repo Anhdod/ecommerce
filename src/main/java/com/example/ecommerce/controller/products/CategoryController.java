@@ -25,8 +25,14 @@ public class CategoryController {
                 ApiResponse.success("Lấy danh sách danh mục thành công", categoryService.getAllCategories()));
     }
 
+    @GetMapping("/featured")
+    public ResponseEntity<ApiResponse<List<CategoryResponse>>> getFeaturedCategories() {
+        return ResponseEntity.ok(
+                ApiResponse.success("Lay danh muc noi bat thanh cong", categoryService.getFeaturedCategories()));
+    }
+
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<ApiResponse<CategoryResponse>> createCategory(
             @Valid @RequestBody CategoryRequest request) {
         CategoryResponse response = categoryService.createCategory(request);
@@ -34,7 +40,7 @@ public class CategoryController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<ApiResponse<CategoryResponse>> updateCategory(
             @PathVariable Long id,
             @Valid @RequestBody CategoryRequest request) {
@@ -43,7 +49,7 @@ public class CategoryController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<ApiResponse<Void>> deleteCategory(@PathVariable Long id) {
         categoryService.deleteCategory(id);
         return ResponseEntity.ok(ApiResponse.success("Xóa danh mục thành công", null));

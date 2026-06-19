@@ -3,6 +3,7 @@ package com.example.ecommerce.controller.payment;
 import com.example.ecommerce.dto.ApiResponse;
 import com.example.ecommerce.dto.payment.PaymentResponse;
 import com.example.ecommerce.entity.payment.PaymentMethod;
+import com.example.ecommerce.entity.payment.PaymentStatus;
 import com.example.ecommerce.service.payment.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +21,7 @@ public class PaymentController {
     // POST /api/payments/order/5?paymentMethod=MOCK_CARD
 
     @PostMapping("/order/{orderId}")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<String>> processPayment(
             @PathVariable Long orderId,
             @RequestParam PaymentMethod paymentMethod) {
@@ -33,28 +34,28 @@ public class PaymentController {
     // PUT /api/payments/admin/confirm/10
 
     @PutMapping("/admin/confirm/{paymentId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<ApiResponse<String>> confirmPaymentByAdmin(@PathVariable Long paymentId) {
         ApiResponse<String> response = paymentService.confirmPaymentByAdmin(paymentId);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/order/{orderId}")
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<PaymentResponse>> getPaymentByOrder(@PathVariable Long orderId) {
         PaymentResponse response = paymentService.getPaymentByOrder(orderId);
         return ResponseEntity.ok(ApiResponse.success("Lấy thông tin thanh toán thành công", response));
     }
 
     @GetMapping("/me")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<java.util.List<PaymentResponse>>> getMyPayments() {
         java.util.List<PaymentResponse> list = paymentService.getMyPayments();
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thanh toán của bạn thành công", list));
     }
 
     @GetMapping("/admin")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<ApiResponse<java.util.List<PaymentResponse>>> getPaymentsByStatus(
             @RequestParam(required = false) PaymentStatus status) {
         java.util.List<PaymentResponse> list;
@@ -66,3 +67,4 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách thanh toán thành công", list));
     }
 }
+

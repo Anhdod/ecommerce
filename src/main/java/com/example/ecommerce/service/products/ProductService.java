@@ -4,6 +4,7 @@ import com.example.ecommerce.dto.products.ProductRequest;
 import com.example.ecommerce.dto.products.ProductResponse;
 import com.example.ecommerce.entity.product.Category;
 import com.example.ecommerce.entity.product.Product;
+import com.example.ecommerce.repository.order.OrderItemRepository;
 import com.example.ecommerce.repository.products.CategoryRepository;
 import com.example.ecommerce.repository.products.ProductRepository;
 
@@ -14,7 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-// import java.util.List; (unused)
+import java.math.BigDecimal;
 
 @Service
 public class ProductService {
@@ -31,16 +32,17 @@ public class ProductService {
     @Autowired
     private ProductReviewService reviewService;
 
-    // ==================== CRUD ====================
+    @Autowired
+    private OrderItemRepository orderItemRepository;
 
     public ProductResponse createProduct(ProductRequest request) {
         Long categoryId = request.getCategoryId();
         if (categoryId == null) {
-            throw new RuntimeException("categoryId không được null");
+            throw new RuntimeException("categoryId khong duoc null");
         }
 
         Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục với id: " + categoryId));
+                .orElseThrow(() -> new RuntimeException("Khong tim thay danh muc voi id: " + categoryId));
 
         Product product = Product.builder()
                 .name(request.getName())
@@ -50,6 +52,7 @@ public class ProductService {
                 .imageUrl(request.getImageUrl())
                 .category(category)
                 .active(true)
+                .featured(request.getFeatured() != null && request.getFeatured())
                 .build();
 
         Product savedProduct = productRepository.save(product);
@@ -58,7 +61,6 @@ public class ProductService {
 
     public Page<ProductResponse> getAllProducts(String keyword, Long categoryId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-
         Page<Product> products;
 
         if (keyword != null && !keyword.trim().isEmpty()) {
@@ -72,21 +74,63 @@ public class ProductService {
         return products.map(this::convertToResponse);
     }
 
+    public Page<ProductResponse> getAllProducts(
+            String keyword,
+            Long categoryId,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            Double minRating,
+            String sort,
+            int page,
+            int size) {
+        boolean aggregateSort = "ratingDesc".equals(sort) || "soldDesc".equals(sort);
+        Pageable pageable = PageRequest.of(page, size, aggregateSort ? Sort.unsorted() : resolveSort(sort));
+        String normalizedKeyword = keyword == null || keyword.trim().isEmpty() ? null : keyword.trim();
+
+        if ("ratingDesc".equals(sort)) {
+            return productRepository
+                    .searchActiveProductsOrderByRating(normalizedKeyword, categoryId, minPrice, maxPrice, minRating,
+                            pageable)
+                    .map(this::convertToResponse);
+        }
+
+        if ("soldDesc".equals(sort)) {
+            return productRepository
+                    .searchActiveProductsOrderBySold(normalizedKeyword, categoryId, minPrice, maxPrice, minRating,
+                            pageable)
+                    .map(this::convertToResponse);
+        }
+
+        if (minRating != null) {
+            return productRepository
+                    .searchActiveProductsWithRating(normalizedKeyword, categoryId, minPrice, maxPrice, minRating,
+                            pageable)
+                    .map(this::convertToResponse);
+        }
+
+        return productRepository.searchActiveProducts(normalizedKeyword, categoryId, minPrice, maxPrice, pageable)
+                .map(this::convertToResponse);
+    }
+
     public ProductResponse getProductById(Long id) {
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm"));
-
+                .orElseThrow(() -> new RuntimeException("Khong tim thay san pham"));
         return convertToResponse(product);
+    }
+
+    public Page<ProductResponse> getFeaturedProducts(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return productRepository.findByActiveTrueAndFeaturedTrue(pageable)
+                .map(this::convertToResponse);
     }
 
     public ProductResponse updateProduct(Long id, ProductRequest request) {
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm với id: " + id));
+                .orElseThrow(() -> new RuntimeException("Khong tim thay san pham voi id: " + id));
 
         if (request.getCategoryId() != null) {
             Category category = categoryRepository.findById(request.getCategoryId())
-                    .orElseThrow(
-                            () -> new RuntimeException("Không tìm thấy danh mục với id: " + request.getCategoryId()));
+                    .orElseThrow(() -> new RuntimeException("Khong tim thay danh muc voi id: " + request.getCategoryId()));
             product.setCategory(category);
         }
 
@@ -97,6 +141,9 @@ public class ProductService {
         if (request.getImageUrl() != null) {
             product.setImageUrl(request.getImageUrl());
         }
+        if (request.getFeatured() != null) {
+            product.setFeatured(request.getFeatured());
+        }
 
         Product updatedProduct = productRepository.save(product);
         return convertToResponse(updatedProduct);
@@ -104,24 +151,21 @@ public class ProductService {
 
     public void deleteProduct(Long id) {
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm với id: " + id));
-
+                .orElseThrow(() -> new RuntimeException("Khong tim thay san pham voi id: " + id));
         product.setActive(false);
         productRepository.save(product);
     }
 
-    // ==================== IMAGE ====================
-
     public void updateProductImage(Long productId, String imageUrl) {
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm"));
+                .orElseThrow(() -> new RuntimeException("Khong tim thay san pham"));
         product.setImageUrl(imageUrl);
         productRepository.save(product);
     }
 
     public boolean deleteProductImage(Long productId) {
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm"));
+                .orElseThrow(() -> new RuntimeException("Khong tim thay san pham"));
 
         if (product.getImageUrl() == null || product.getImageUrl().isEmpty()) {
             return false;
@@ -132,7 +176,21 @@ public class ProductService {
         return true;
     }
 
-    // ==================== CONVERT ====================
+    private Sort resolveSort(String sort) {
+        if (sort == null || sort.isBlank()) {
+            return Sort.by("createdAt").descending();
+        }
+
+        return switch (sort) {
+            case "priceAsc" -> Sort.by("price").ascending();
+            case "priceDesc" -> Sort.by("price").descending();
+            case "nameAsc" -> Sort.by("name").ascending();
+            case "nameDesc" -> Sort.by("name").descending();
+            case "oldest" -> Sort.by("createdAt").ascending();
+            case "latest" -> Sort.by("createdAt").descending();
+            default -> Sort.by("createdAt").descending();
+        };
+    }
 
     private ProductResponse convertToResponse(Product product) {
         return ProductResponse.builder()
@@ -145,11 +203,13 @@ public class ProductService {
                 .categoryId(product.getCategory().getId())
                 .categoryName(product.getCategory().getName())
                 .active(product.isActive())
+                .featured(product.isFeatured())
                 .createdAt(product.getCreatedAt())
                 .likeCount(productLikeService.getLikeCount(product.getId()))
                 .reviewCount((int) reviewService.getReviewCount(product.getId()))
                 .averageRating(reviewService.getAverageRating(product.getId()))
                 .isLikedByCurrentUser(productLikeService.isLikedByCurrentUser(product.getId()))
+                .salesCount(orderItemRepository.sumSoldQuantityByProductId(product.getId()))
                 .build();
     }
 }
