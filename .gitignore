@@ -4,6 +4,29 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+### Environment ###
+.env
+*.env
+!.env.example
+
+### Generated / local runtime files ###
+*.log
+*.class
+user-token.txt
+backend/target/
+frontend/node_modules/
+frontend/dist/
+uploads/
+backend/uploads/
+backend-dev.log
+backend-dev.err.log
+frontend-dev.log
+frontend-dev.err.log
+mvn-test-output.txt
+mvn-test-error.txt
+terminal-check.txt
+curl-products.json
+
 ### STS ###
 .apt_generated
 .classpath
