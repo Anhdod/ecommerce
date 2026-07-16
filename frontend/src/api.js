@@ -11,7 +11,7 @@ export const assetUrl = (url) => {
   return `${API_BASE_URL}${url.startsWith('/') ? url : `/${url}`}`;
 };
 
-const api = async (path, options = {}) => {
+const request = async (path, options = {}) => {
   const token = localStorage.getItem('authToken');
   const isFormData = options.body instanceof FormData;
   const headers = {
@@ -49,10 +49,53 @@ const api = async (path, options = {}) => {
   }
 
   if (!response.ok) {
-    throw data || { message: response.statusText, status: response.status };
+    throw {
+      ...(data || {}),
+      message: data?.message || response.statusText,
+      status: response.status,
+    };
   }
 
   return data;
+};
+
+const refreshAccessToken = async () => {
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) return null;
+
+  const result = await request('/auth/refresh', {
+    method: 'POST',
+    body: { refreshToken },
+  });
+
+  if (result?.data?.token) {
+    localStorage.setItem('authToken', result.data.token);
+    return result.data.token;
+  }
+
+  return null;
+};
+
+const api = async (path, options = {}) => {
+  try {
+    return await request(path, options);
+  } catch (error) {
+    if (error?.status !== 401 || path === '/auth/refresh') {
+      throw error;
+    }
+
+    try {
+      const newToken = await refreshAccessToken();
+      if (newToken) {
+        return await request(path, options);
+      }
+    } catch {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+    }
+
+    throw error;
+  }
 };
 
 export default api;

@@ -22,6 +22,9 @@ export default function NavBar({ user, onLogout }) {
 
   useEffect(() => {
     loadUnreadCount();
+
+    window.addEventListener('notifications:changed', loadUnreadCount);
+    return () => window.removeEventListener('notifications:changed', loadUnreadCount);
   }, [user]);
 
   return (

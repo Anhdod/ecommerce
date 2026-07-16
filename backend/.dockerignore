@@ -1,0 +1,14 @@
+target
+.git
+.idea
+.vscode
+*.log
+*.class
+frontend
+uploads
+mvn-test-output.txt
+mvn-test-error.txt
+backend-dev.log
+backend-dev.err.log
+frontend-dev.log
+frontend-dev.err.log

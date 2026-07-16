@@ -624,6 +624,18 @@ button.small.danger {
   max-width: 160px;
 }
 
+.revenue-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.revenue-filters input {
+  width: 150px;
+}
+
 .bar-chart,
 .rank-list,
 .status-grid {
@@ -830,5 +842,21 @@ button.small.danger {
   .bar-row,
   .rank-row {
     grid-template-columns: 1fr;
+  }
+
+  .card-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .revenue-filters {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .revenue-filters input,
+  .revenue-filters .compact-select {
+    max-width: none;
+    width: 100%;
   }
 }

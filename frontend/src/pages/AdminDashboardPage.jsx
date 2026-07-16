@@ -22,6 +22,9 @@ export default function AdminDashboardPage({ user }) {
   const [orderStatus, setOrderStatus] = useState([]);
   const [revenue, setRevenue] = useState([]);
   const [revenueGroup, setRevenueGroup] = useState('day');
+  const [revenueFrom, setRevenueFrom] = useState('');
+  const [revenueTo, setRevenueTo] = useState('');
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
   const links = useMemo(
@@ -52,13 +55,23 @@ export default function AdminDashboardPage({ user }) {
   };
 
   const loadDashboard = async () => {
+    if (revenueFrom && revenueTo && revenueFrom > revenueTo) {
+      showMessage('Revenue start date must be before end date');
+      return;
+    }
+
+    const revenueQuery = new URLSearchParams({ groupBy: revenueGroup });
+    if (revenueFrom) revenueQuery.set('from', revenueFrom);
+    if (revenueTo) revenueQuery.set('to', revenueTo);
+
     try {
+      setLoading(true);
       const [summaryResult, topSellingResult, topCustomersResult, statusResult, revenueResult] = await Promise.all([
         api('/api/admin/dashboard/summary'),
         api('/api/admin/dashboard/top-selling?limit=5'),
         api('/api/admin/dashboard/top-customers?limit=5'),
         api('/api/admin/dashboard/order-status'),
-        api(`/api/admin/dashboard/revenue?groupBy=${revenueGroup}`),
+        api(`/api/admin/dashboard/revenue?${revenueQuery.toString()}`),
       ]);
 
       setSummary(summaryResult.data);
@@ -68,6 +81,8 @@ export default function AdminDashboardPage({ user }) {
       setRevenue(revenueResult.data || []);
     } catch (error) {
       showMessage(error?.message || 'Cannot load admin dashboard');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -75,7 +90,7 @@ export default function AdminDashboardPage({ user }) {
     if (user?.role === 'ADMIN' || user?.role === 'STAFF') {
       loadDashboard();
     }
-  }, [user, revenueGroup]);
+  }, [user, revenueGroup, revenueFrom, revenueTo]);
 
   if (!user) {
     return (
@@ -107,8 +122,8 @@ export default function AdminDashboardPage({ user }) {
           <h1>Dashboard</h1>
           <p>Quan ly san pham, don hang, ton kho va chien dich trong mot man hinh gon.</p>
         </div>
-        <button className="small" onClick={loadDashboard}>
-          Refresh
+        <button className="small" onClick={loadDashboard} disabled={loading}>
+          {loading ? 'Refreshing...' : 'Refresh'}
         </button>
       </section>
 
@@ -142,10 +157,36 @@ export default function AdminDashboardPage({ user }) {
             <h2>Revenue</h2>
             <p className="muted">Paid payment timeline</p>
           </div>
-          <select className="compact-select" value={revenueGroup} onChange={(event) => setRevenueGroup(event.target.value)}>
-            <option value="day">By day</option>
-            <option value="month">By month</option>
-          </select>
+          <div className="revenue-filters">
+            <select className="compact-select" value={revenueGroup} onChange={(event) => setRevenueGroup(event.target.value)}>
+              <option value="day">By day</option>
+              <option value="month">By month</option>
+            </select>
+            <input
+              type="date"
+              value={revenueFrom}
+              aria-label="Revenue from date"
+              onChange={(event) => setRevenueFrom(event.target.value)}
+            />
+            <input
+              type="date"
+              value={revenueTo}
+              aria-label="Revenue to date"
+              onChange={(event) => setRevenueTo(event.target.value)}
+            />
+            {(revenueFrom || revenueTo) && (
+              <button
+                type="button"
+                className="small"
+                onClick={() => {
+                  setRevenueFrom('');
+                  setRevenueTo('');
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
         {revenue.length ? (
           <div className="bar-chart">
@@ -167,14 +208,18 @@ export default function AdminDashboardPage({ user }) {
       <div className="dashboard-columns">
         <section className="panel admin-section">
           <h2>Order Status</h2>
-          <div className="status-grid">
-            {orderStatus.map((item) => (
-              <div className="status-pill" key={item.status}>
-                <strong>{item.total}</strong>
-                <span>{item.status}</span>
-              </div>
-            ))}
-          </div>
+          {orderStatus.length ? (
+            <div className="status-grid">
+              {orderStatus.map((item) => (
+                <div className="status-pill" key={item.status}>
+                  <strong>{item.total}</strong>
+                  <span>{item.status}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">No order status data yet.</p>
+          )}
         </section>
 
         <section className="panel admin-section">

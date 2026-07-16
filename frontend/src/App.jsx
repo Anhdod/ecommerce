@@ -47,18 +47,36 @@ function App() {
       setUserFromProfile(result.data);
     } catch {
       localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
       setUser(null);
     }
   };
 
   const handleAuthSuccess = (authResponse) => {
     localStorage.setItem('authToken', authResponse.token);
+    if (authResponse.refreshToken) {
+      localStorage.setItem('refreshToken', authResponse.refreshToken);
+    }
     setUserFromProfile(authResponse);
     showMessage('Dang nhap thanh cong');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const refreshToken = localStorage.getItem('refreshToken');
+
+    if (refreshToken) {
+      try {
+        await api('/auth/logout', {
+          method: 'POST',
+          body: { refreshToken },
+        });
+      } catch {
+        // Local cleanup still logs the user out if the token was already invalid.
+      }
+    }
+
     localStorage.removeItem('authToken');
+    localStorage.removeItem('refreshToken');
     setUser(null);
     showMessage('Da dang xuat');
   };
