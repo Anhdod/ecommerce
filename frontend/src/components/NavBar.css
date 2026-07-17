@@ -1,7 +1,7 @@
 .app-header {
   display: grid;
-  grid-template-columns: auto minmax(420px, 1fr) minmax(160px, 230px) auto;
-  gap: 1rem;
+  grid-template-columns: 150px minmax(440px, 1fr) minmax(180px, 260px) auto;
+  gap: 0.85rem;
   align-items: center;
   padding: 1.15rem 2rem 0.9rem;
   border-bottom: 0;
@@ -10,8 +10,8 @@
 }
 
 .brand {
-  font-size: 1.55rem;
-  font-weight: 900;
+  font-size: 1.45rem;
+  font-weight: 800;
   letter-spacing: 0;
   color: #111827;
 }
@@ -31,8 +31,8 @@
   border: 0;
   border-radius: 999px;
   color: #111827;
-  font-weight: 800;
-  font-size: 0.93rem;
+  font-weight: 650;
+  font-size: 0.92rem;
   background: transparent;
 }
 
@@ -108,7 +108,7 @@
   background: #f7f5ff;
   color: #111827;
   font-size: 0.78rem;
-  font-weight: 900;
+  font-weight: 700;
   text-decoration: none;
 }
 
@@ -117,7 +117,16 @@
   border-radius: 999px;
   color: #6d28d9;
   background: #f4efff;
-  font-weight: 900;
+  font-weight: 700;
+}
+
+.user-panel > span {
+  max-width: 90px;
+  overflow: hidden;
+  color: #111827;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 1180px) {
