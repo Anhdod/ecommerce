@@ -51,8 +51,8 @@ Services:
 - Backend API: `http://localhost:8080`
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - Health check: `http://localhost:8080/actuator/health`
-- MySQL: `localhost:3306`
-- Redis: `localhost:6379`
+- MySQL: `localhost:3307`
+- Redis: `localhost:6380`
 
 ## Run Locally
 
@@ -80,9 +80,11 @@ MYSQL_DATABASE=ecommerce_db
 MYSQL_USER=root
 MYSQL_PASSWORD=your_password
 MYSQL_ALLOW_EMPTY_PASSWORD=yes
+MYSQL_PORT=3307
 SPRING_PROFILES_ACTIVE=docker
 REDIS_HOST=redis
 REDIS_PORT=6379
+REDIS_HOST_PORT=6380
 VITE_API_BASE_URL=http://localhost:8080
 FRONTEND_PORT=3000
 ```
