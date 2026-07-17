@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import api, { assetUrl } from '../api';
 import './ProductListPage.css';
 
 const currency = (value) => {
   const number = Number(value || 0);
   const displayValue = number > 0 && number < 10000 ? number * 25000 : number;
-  return `${displayValue.toLocaleString('vi-VN')} đ`;
+  return `${displayValue.toLocaleString('vi-VN')} VND`;
 };
 
 const categoryVisuals = {
@@ -15,17 +15,26 @@ const categoryVisuals = {
   audio: 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&w=900&q=80',
 };
 
+const categoryCopy = {
+  phones: 'Smartphones',
+  laptops: 'Latest Laptops',
+  audio: 'Audio Accessories',
+};
+
 const normalize = (value) => String(value || '').toLowerCase();
 
 const categoryImage = (category) => categoryVisuals[normalize(category?.name)] || categoryVisuals.audio;
 
+const categoryTitle = (category) => categoryCopy[normalize(category?.name)] || category?.name || 'New arrivals';
+
 export default function ProductListPage({ user }) {
+  const [searchParams] = useSearchParams();
   const [categories, setCategories] = useState([]);
   const [featuredCategories, setFeaturedCategories] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [products, setProducts] = useState([]);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('keyword') || '');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [minRating, setMinRating] = useState('');
@@ -35,7 +44,7 @@ export default function ProductListPage({ user }) {
 
   const visibleFeaturedCategories = useMemo(() => {
     const source = featuredCategories.length ? featuredCategories : categories;
-    return source.slice(0, 2);
+    return source.slice(0, 3);
   }, [categories, featuredCategories]);
 
   const filteredProducts = useMemo(() => {
@@ -80,11 +89,11 @@ export default function ProductListPage({ user }) {
     }
   };
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (keyword = search) => {
     setLoading(true);
     try {
       const query = new URLSearchParams();
-      if (search) query.set('keyword', search);
+      if (keyword) query.set('keyword', keyword);
       if (selectedCategory) query.set('categoryId', selectedCategory);
       if (minPrice) query.set('minPrice', minPrice);
       if (maxPrice) query.set('maxPrice', maxPrice);
@@ -120,66 +129,63 @@ export default function ProductListPage({ user }) {
     setMinRating('');
     setSort('latest');
     setSelectedCategory(null);
-    window.setTimeout(fetchProducts, 0);
+    window.setTimeout(() => fetchProducts(''), 0);
+  };
+
+  const submitSearch = (event) => {
+    event.preventDefault();
+    fetchProducts();
   };
 
   useEffect(() => {
     fetchCategories();
     fetchFeatured();
-    fetchProducts();
   }, []);
+
+  useEffect(() => {
+    const keyword = searchParams.get('keyword') || '';
+    setSearch(keyword);
+    fetchProducts(keyword);
+  }, [searchParams]);
+
+  const quickProducts = (products.length ? products : featuredProducts).slice(0, 4);
+  const featuredItems = (featuredProducts.length ? featuredProducts : products).slice(0, 4);
 
   return (
     <main className="shop-page">
-      <section className="category-hero-grid">
+      <section className="category-hero-grid" id="categories">
         {visibleFeaturedCategories.map((category) => (
           <button
             className={`category-hero-card ${selectedCategory === category.id ? 'active' : ''}`}
             key={category.id}
             onClick={() => setSelectedCategory(category.id)}
+            type="button"
           >
-            <img src={categoryImage(category)} alt={category.name} />
             <span>
-              <strong>{category.name}</strong>
-              <small>{category.description || 'Explore curated products'}</small>
-              <em>Explore -&gt;</em>
+              <small>{category.description || 'New collection'}</small>
+              <strong>{categoryTitle(category)}</strong>
             </span>
+            <img src={categoryImage(category)} alt={category.name} />
           </button>
         ))}
       </section>
 
-      <section className="featured-section">
-        <div className="section-heading">
-          <h2>Featured Products</h2>
-          <button className="link-button" onClick={() => window.scrollTo({ top: 640, behavior: 'smooth' })}>
-            View all -&gt;
-          </button>
-        </div>
-        <div className="featured-products-row">
-          {(featuredProducts.length ? featuredProducts : products.slice(0, 4)).map((product) => (
-            <article className="shop-card featured-card" key={product.id}>
-              <span className="feature-badge">Featured</span>
-              <img className="shop-card-image" src={assetUrl(product.imageUrl)} alt={product.name} />
-              <div className="shop-card-body">
-                <h3>{product.name}</h3>
-                <strong>{currency(product.price)}</strong>
-                <p className="rating-line">★ {(product.averageRating || 4.8).toFixed(1)} ({product.reviewCount || 24})</p>
-                <div className="shop-card-actions">
-                  <Link className="outline-button" to={`/products/${product.id}`}>
-                    Details
-                  </Link>
-                  <button onClick={() => handleAddToCart(product.id)}>Add to cart</button>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
+      <section className="quick-product-row">
+        {quickProducts.map((product) => (
+          <Link className="quick-product" to={`/products/${product.id}`} key={product.id}>
+            <button aria-label="Add to wishlist" type="button">
+              heart
+            </button>
+            <img src={assetUrl(product.imageUrl)} alt={product.name} />
+            <strong>{product.name}</strong>
+          </Link>
+        ))}
       </section>
 
-      <section className="catalog-layout">
+      <section className="catalog-layout" id="shop">
         <aside className="catalog-sidebar">
-          <h3>Categories</h3>
-          <button className={!selectedCategory ? 'active' : ''} onClick={() => setSelectedCategory(null)}>
+          <h3>All Categories</h3>
+          <button className={!selectedCategory ? 'active' : ''} onClick={() => setSelectedCategory(null)} type="button">
             All
           </button>
           {categories.map((category) => (
@@ -187,6 +193,7 @@ export default function ProductListPage({ user }) {
               key={category.id}
               className={selectedCategory === category.id ? 'active' : ''}
               onClick={() => setSelectedCategory(category.id)}
+              type="button"
             >
               {category.name}
             </button>
@@ -206,18 +213,44 @@ export default function ProductListPage({ user }) {
               className={`rating-filter ${Number(minRating) === rating ? 'active' : ''}`}
               key={rating}
               onClick={() => setMinRating(String(rating))}
+              type="button"
             >
-              {'★'.repeat(rating)}
-              {'☆'.repeat(5 - rating)}
+              {'*'.repeat(rating)}
+              {'-'.repeat(5 - rating)}
               <span>& up</span>
             </button>
           ))}
         </aside>
 
         <div className="catalog-main">
-          <div className="catalog-toolbar">
+          <div className="section-heading">
+            <h2>Featured</h2>
+            <select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sort products">
+              <option value="latest">Fresh</option>
+              <option value="priceAsc">Low price</option>
+              <option value="priceDesc">High price</option>
+              <option value="soldDesc">Best selling</option>
+            </select>
+          </div>
+
+          <div className="featured-products-row">
+            {featuredItems.map((product) => (
+              <article className="shop-card featured-card" key={product.id}>
+                <button className="favorite-button" aria-label="Add to wishlist" type="button">
+                  heart
+                </button>
+                <img className="shop-card-image" src={assetUrl(product.imageUrl)} alt={product.name} />
+                <div className="shop-card-body">
+                  <h3>{product.name}</h3>
+                  <strong>{currency(product.price)}</strong>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <form className="catalog-toolbar" onSubmit={submitSearch}>
             <div className="soft-search">
-              <span>⌕</span>
+              <span>Search</span>
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products..." />
             </div>
             <label>
@@ -233,15 +266,16 @@ export default function ProductListPage({ user }) {
                 <option value="nameDesc">Name Z-A</option>
               </select>
             </label>
-            <button onClick={fetchProducts}>Apply</button>
-            <button className="ghost-button" onClick={resetFilters}>
+            <button type="submit">Apply</button>
+            <button className="ghost-button" onClick={resetFilters} type="button">
               Reset
             </button>
-          </div>
+          </form>
 
           <div className="catalog-tabs">
-            <button className="active">All Products</button>
-            <button>On Sale</button>
+            <button className="active" type="button">
+              All Products
+            </button>
             <span>{filteredProducts.length} products found</span>
           </div>
 
@@ -252,6 +286,9 @@ export default function ProductListPage({ user }) {
               filteredProducts.map((product) => (
                 <article className="shop-card compact-product-card" key={product.id}>
                   <div className="image-wrap">
+                    <button className="favorite-button" aria-label="Add to wishlist" type="button">
+                      heart
+                    </button>
                     <img className="shop-card-image" src={assetUrl(product.imageUrl)} alt={product.name} />
                     <span className="category-pill">{product.categoryName}</span>
                   </div>
@@ -260,12 +297,14 @@ export default function ProductListPage({ user }) {
                     <p>{product.description}</p>
                     <strong>{currency(product.price)}</strong>
                     <small>Stock: {product.stockQuantity}</small>
-                    <p className="rating-line">★ {(product.averageRating || 4.7).toFixed(1)} ({product.reviewCount || 18})</p>
+                    <p className="rating-line">* {(product.averageRating || 4.7).toFixed(1)} ({product.reviewCount || 18})</p>
                     <div className="shop-card-actions">
                       <Link className="outline-button" to={`/products/${product.id}`}>
                         Details
                       </Link>
-                      <button onClick={() => handleAddToCart(product.id)}>Add to cart</button>
+                      <button onClick={() => handleAddToCart(product.id)} type="button">
+                        Add to cart
+                      </button>
                     </div>
                   </div>
                 </article>

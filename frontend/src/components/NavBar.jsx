@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import api from '../api';
 import './NavBar.css';
 
 export default function NavBar({ user, onLogout }) {
   const canManage = user?.role === 'ADMIN' || user?.role === 'STAFF';
+  const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [keyword, setKeyword] = useState('');
 
   const loadUnreadCount = async () => {
     if (!user) {
@@ -21,6 +23,12 @@ export default function NavBar({ user, onLogout }) {
     }
   };
 
+  const submitHeaderSearch = (event) => {
+    event.preventDefault();
+    const query = keyword.trim();
+    navigate(query ? `/?keyword=${encodeURIComponent(query)}` : '/');
+  };
+
   useEffect(() => {
     loadUnreadCount();
 
@@ -30,18 +38,16 @@ export default function NavBar({ user, onLogout }) {
 
   return (
     <header className="app-header">
-      <div className="brand"><span>Shop</span>Zone</div>
+      <div className="brand">
+        <span>Shop</span>Zone
+      </div>
       <nav className="topnav">
         <NavLink to="/" end>
           Home
         </NavLink>
-        <Link to="/#shop">
-          Shop
-        </Link>
-        <Link to="/#categories">
-          Categories
-        </Link>
-        <NavLink to="/cart">Cart</NavLink>
+        <Link to="/#shop">Shop</Link>
+        <Link to="/#categories">Categories</Link>
+        <Link to="/#shop">Deals</Link>
         <NavLink to="/orders">Orders</NavLink>
         <NavLink to="/profile">Profile</NavLink>
         {user && (
@@ -50,14 +56,21 @@ export default function NavBar({ user, onLogout }) {
             {unreadCount > 0 && <span className="nav-badge">{unreadCount}</span>}
           </NavLink>
         )}
-        <NavLink to="/wishlist">Wishlist</NavLink>
         {canManage && <NavLink to="/admin">Admin</NavLink>}
       </nav>
-      <div className="header-search">
-        <span>⌕</span>
-        <input placeholder="Search products..." />
-      </div>
+      <form className="header-search" onSubmit={submitHeaderSearch}>
+        <button type="submit" aria-label="Search products">
+          Search
+        </button>
+        <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="Search products..." />
+      </form>
       <div className="user-panel">
+        <NavLink className="icon-link" to="/cart" aria-label="Cart">
+          Cart
+        </NavLink>
+        <NavLink className="icon-link" to="/wishlist" aria-label="Wishlist">
+          Wish
+        </NavLink>
         {user ? (
           <>
             <span>{user.fullName || user.username}</span>
