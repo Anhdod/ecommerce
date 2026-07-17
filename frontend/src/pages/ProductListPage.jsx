@@ -173,9 +173,7 @@ export default function ProductListPage({ user }) {
       <section className="quick-product-row">
         {quickProducts.map((product) => (
           <Link className="quick-product" to={`/products/${product.id}`} key={product.id}>
-            <button aria-label="Add to wishlist" type="button">
-              heart
-            </button>
+            <button aria-label="Add to wishlist" type="button" />
             <img src={assetUrl(product.imageUrl)} alt={product.name} />
             <strong>{product.name}</strong>
           </Link>
@@ -236,9 +234,7 @@ export default function ProductListPage({ user }) {
           <div className="featured-products-row">
             {featuredItems.map((product) => (
               <article className="shop-card featured-card" key={product.id}>
-                <button className="favorite-button" aria-label="Add to wishlist" type="button">
-                  heart
-                </button>
+                <button className="favorite-button" aria-label="Add to wishlist" type="button" />
                 <img className="shop-card-image" src={assetUrl(product.imageUrl)} alt={product.name} />
                 <div className="shop-card-body">
                   <h3>{product.name}</h3>
@@ -286,9 +282,7 @@ export default function ProductListPage({ user }) {
               filteredProducts.map((product) => (
                 <article className="shop-card compact-product-card" key={product.id}>
                   <div className="image-wrap">
-                    <button className="favorite-button" aria-label="Add to wishlist" type="button">
-                      heart
-                    </button>
+                    <button className="favorite-button" aria-label="Add to wishlist" type="button" />
                     <img className="shop-card-image" src={assetUrl(product.imageUrl)} alt={product.name} />
                     <span className="category-pill">{product.categoryName}</span>
                   </div>

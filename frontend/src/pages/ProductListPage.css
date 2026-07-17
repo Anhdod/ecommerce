@@ -113,7 +113,7 @@
 
 .quick-product button::before,
 .favorite-button::before {
-  content: "♡";
+  content: "\2661";
   position: absolute;
   inset: 0;
   display: grid;
