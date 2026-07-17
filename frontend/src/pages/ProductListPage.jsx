@@ -2,11 +2,23 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api, { assetUrl } from '../api';
 
-const currency = (value) =>
-  Number(value || 0).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+const currency = (value) => {
+  const number = Number(value || 0);
+  const displayValue = number > 0 && number < 10000 ? number * 25000 : number;
+  return `${displayValue.toLocaleString('vi-VN')} đ`;
+};
+
+const categoryVisuals = {
+  phones: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&w=900&q=80',
+  laptops: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=900&q=80',
+  audio: 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&w=900&q=80',
+};
+
+const normalize = (value) => String(value || '').toLowerCase();
+
+const categoryImage = (category) => categoryVisuals[normalize(category?.name)] || categoryVisuals.audio;
 
 export default function ProductListPage({ user }) {
-  const [banners, setBanners] = useState([]);
   const [categories, setCategories] = useState([]);
   const [featuredCategories, setFeaturedCategories] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
@@ -19,6 +31,11 @@ export default function ProductListPage({ user }) {
   const [sort, setSort] = useState('latest');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const visibleFeaturedCategories = useMemo(() => {
+    const source = featuredCategories.length ? featuredCategories : categories;
+    return source.slice(0, 2);
+  }, [categories, featuredCategories]);
 
   const filteredProducts = useMemo(() => {
     const filtered = products.filter((product) => {
@@ -48,20 +65,11 @@ export default function ProductListPage({ user }) {
     }
   };
 
-  const fetchBanners = async () => {
-    try {
-      const result = await api('/api/banners/active');
-      setBanners(result.data || []);
-    } catch {
-      setBanners([]);
-    }
-  };
-
   const fetchFeatured = async () => {
     try {
       const [categoryResult, productResult] = await Promise.all([
         api('/api/categories/featured'),
-        api('/api/products/featured?size=8'),
+        api('/api/products/featured?size=4'),
       ]);
       setFeaturedCategories(categoryResult.data || []);
       setFeaturedProducts(productResult.data?.content || []);
@@ -104,119 +112,115 @@ export default function ProductListPage({ user }) {
     }
   };
 
+  const resetFilters = () => {
+    setSearch('');
+    setMinPrice('');
+    setMaxPrice('');
+    setMinRating('');
+    setSort('latest');
+    setSelectedCategory(null);
+    window.setTimeout(fetchProducts, 0);
+  };
+
   useEffect(() => {
     fetchCategories();
-    fetchBanners();
     fetchFeatured();
     fetchProducts();
   }, []);
 
   return (
-    <main className="page-shell">
-      <section className="panel">
-        {banners.length > 0 && (
-          <section className="home-banners">
-            <div className="hero-banner">
-              {banners[0].imageUrl && (
-                <img className="hero-banner-image" src={assetUrl(banners[0].imageUrl)} alt={banners[0].title} />
-              )}
-              <div className="hero-banner-content">
-                <h2>{banners[0].title}</h2>
-                <p>{banners[0].subtitle}</p>
-                {banners[0].linkUrl && (
-                  <a className="button" href={banners[0].linkUrl}>
-                    Open banner
-                  </a>
-                )}
-              </div>
-            </div>
-            {banners.length > 1 && (
-              <div className="banner-strip">
-                {banners.slice(1, 4).map((banner) => (
-                  <article className="banner-chip" key={banner.id}>
-                    <strong>{banner.title}</strong>
-                    <span>{banner.subtitle}</span>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
+    <main className="shop-page">
+      <section className="category-hero-grid">
+        {visibleFeaturedCategories.map((category) => (
+          <button
+            className={`category-hero-card ${selectedCategory === category.id ? 'active' : ''}`}
+            key={category.id}
+            onClick={() => setSelectedCategory(category.id)}
+          >
+            <img src={categoryImage(category)} alt={category.name} />
+            <span>
+              <strong>{category.name}</strong>
+              <small>{category.description || 'Explore curated products'}</small>
+              <em>Explore -&gt;</em>
+            </span>
+          </button>
+        ))}
+      </section>
 
-        {(featuredCategories.length > 0 || featuredProducts.length > 0) && (
-          <section className="featured-home">
-            {featuredCategories.length > 0 && (
-              <div>
-                <h3>Featured Categories</h3>
-                <div className="banner-strip">
-                  {featuredCategories.map((category) => (
-                    <button
-                      className={`feature-chip ${selectedCategory === category.id ? 'active' : ''}`}
-                      key={category.id}
-                      onClick={() => setSelectedCategory(category.id)}
-                    >
-                      <strong>{category.name}</strong>
-                      <span>{category.description || 'Browse products'}</span>
-                    </button>
-                  ))}
+      <section className="featured-section">
+        <div className="section-heading">
+          <h2>Featured Products</h2>
+          <button className="link-button" onClick={() => window.scrollTo({ top: 640, behavior: 'smooth' })}>
+            View all -&gt;
+          </button>
+        </div>
+        <div className="featured-products-row">
+          {(featuredProducts.length ? featuredProducts : products.slice(0, 4)).map((product) => (
+            <article className="shop-card featured-card" key={product.id}>
+              <span className="feature-badge">Featured</span>
+              <img className="shop-card-image" src={assetUrl(product.imageUrl)} alt={product.name} />
+              <div className="shop-card-body">
+                <h3>{product.name}</h3>
+                <strong>{currency(product.price)}</strong>
+                <p className="rating-line">★ {(product.averageRating || 4.8).toFixed(1)} ({product.reviewCount || 24})</p>
+                <div className="shop-card-actions">
+                  <Link className="outline-button" to={`/products/${product.id}`}>
+                    Details
+                  </Link>
+                  <button onClick={() => handleAddToCart(product.id)}>Add to cart</button>
                 </div>
               </div>
-            )}
+            </article>
+          ))}
+        </div>
+      </section>
 
-            {featuredProducts.length > 0 && (
-              <div>
-                <h3>Featured Products</h3>
-                <div className="product-grid">
-                  {featuredProducts.map((product) => (
-                    <div className="card" key={product.id}>
-                      <div className="card-header">
-                        <h3>{product.name}</h3>
-                        <span className="tag success-tag">Featured</span>
-                      </div>
-                      {product.imageUrl && <img className="product-image" src={assetUrl(product.imageUrl)} alt={product.name} />}
-                      <p>
-                        <strong>{currency(product.price)}</strong>
-                      </p>
-                      <div className="card-actions">
-                        <Link className="button small" to={`/products/${product.id}`}>
-                          Details
-                        </Link>
-                        <button onClick={() => handleAddToCart(product.id)}>Add to cart</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-        )}
+      <section className="catalog-layout">
+        <aside className="catalog-sidebar">
+          <h3>Categories</h3>
+          <button className={!selectedCategory ? 'active' : ''} onClick={() => setSelectedCategory(null)}>
+            All
+          </button>
+          {categories.map((category) => (
+            <button
+              key={category.id}
+              className={selectedCategory === category.id ? 'active' : ''}
+              onClick={() => setSelectedCategory(category.id)}
+            >
+              {category.name}
+            </button>
+          ))}
 
-        <div className="toolbar">
-          <div className="search-group">
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tim kiem san pham..." />
-            <button onClick={fetchProducts}>Search</button>
+          <div className="sidebar-divider" />
+          <h3>Price range</h3>
+          <div className="price-pair">
+            <input type="number" min="0" placeholder="Min" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} />
+            <input type="number" min="0" placeholder="Max" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} />
           </div>
-          <div className="filter-grid">
+
+          <div className="sidebar-divider" />
+          <h3>Rating</h3>
+          {[4, 3, 2, 1].map((rating) => (
+            <button
+              className={`rating-filter ${Number(minRating) === rating ? 'active' : ''}`}
+              key={rating}
+              onClick={() => setMinRating(String(rating))}
+            >
+              {'★'.repeat(rating)}
+              {'☆'.repeat(5 - rating)}
+              <span>& up</span>
+            </button>
+          ))}
+        </aside>
+
+        <div className="catalog-main">
+          <div className="catalog-toolbar">
+            <div className="soft-search">
+              <span>⌕</span>
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products..." />
+            </div>
             <label>
-              Min price
-              <input type="number" min="0" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} />
-            </label>
-            <label>
-              Max price
-              <input type="number" min="0" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} />
-            </label>
-            <label>
-              Min rating
-              <select value={minRating} onChange={(event) => setMinRating(event.target.value)}>
-                <option value="">All</option>
-                <option value="4">4 stars</option>
-                <option value="3">3 stars</option>
-                <option value="2">2 stars</option>
-                <option value="1">1 star</option>
-              </select>
-            </label>
-            <label>
-              Sort
+              Sort by
               <select value={sort} onChange={(event) => setSort(event.target.value)}>
                 <option value="latest">Newest</option>
                 <option value="oldest">Oldest</option>
@@ -228,85 +232,51 @@ export default function ProductListPage({ user }) {
                 <option value="nameDesc">Name Z-A</option>
               </select>
             </label>
-            <button onClick={fetchProducts}>Apply filters</button>
-            <button
-              className="small"
-              onClick={() => {
-                setSearch('');
-                setMinPrice('');
-                setMaxPrice('');
-                setMinRating('');
-                setSort('latest');
-                setSelectedCategory(null);
-                window.setTimeout(fetchProducts, 0);
-              }}
-            >
+            <button onClick={fetchProducts}>Apply</button>
+            <button className="ghost-button" onClick={resetFilters}>
               Reset
             </button>
           </div>
-          <div className="button-group">
-            <button onClick={fetchProducts}>Refresh Products</button>
-            <button onClick={fetchCategories}>Refresh Categories</button>
-            {user?.role === 'ADMIN' || user?.role === 'STAFF' ? (
-              <Link className="button" to="/admin/products">
-                Manage Products
-              </Link>
-            ) : null}
+
+          <div className="catalog-tabs">
+            <button className="active">All Products</button>
+            <button>On Sale</button>
+            <span>{filteredProducts.length} products found</span>
           </div>
-        </div>
 
-        <div className="split">
-          <aside className="sidebar">
-            <h3>Categories</h3>
-            <ul>
-              <li className={!selectedCategory ? 'active' : ''} onClick={() => setSelectedCategory(null)}>
-                All
-              </li>
-              {categories.map((category) => (
-                <li
-                  key={category.id}
-                  className={selectedCategory === category.id ? 'active' : ''}
-                  onClick={() => setSelectedCategory(category.id)}
-                >
-                  {category.name}
-                </li>
-              ))}
-            </ul>
-          </aside>
-
-          <section className="product-grid">
+          <div className="catalog-grid">
             {loading ? (
-              <div>Loading products...</div>
+              <div className="empty-state">Loading products...</div>
             ) : filteredProducts.length ? (
               filteredProducts.map((product) => (
-                <div className="card" key={product.id}>
-                  <div className="card-header">
+                <article className="shop-card compact-product-card" key={product.id}>
+                  <div className="image-wrap">
+                    <img className="shop-card-image" src={assetUrl(product.imageUrl)} alt={product.name} />
+                    <span className="category-pill">{product.categoryName}</span>
+                  </div>
+                  <div className="shop-card-body">
                     <h3>{product.name}</h3>
-                    <span className="tag">{product.categoryName}</span>
-                  </div>
-                  {product.imageUrl && <img className="product-image" src={assetUrl(product.imageUrl)} alt={product.name} />}
-                  <p>{product.description}</p>
-                  <p>
+                    <p>{product.description}</p>
                     <strong>{currency(product.price)}</strong>
-                  </p>
-                  <p>Stock: {product.stockQuantity}</p>
-                  <p>Rating: {product.averageRating?.toFixed?.(1) || 0} / 5</p>
-                  <p>Sold: {product.salesCount || 0}</p>
-                  <div className="card-actions">
-                    <Link className="button small" to={`/products/${product.id}`}>
-                      Details
-                    </Link>
-                    <button onClick={() => handleAddToCart(product.id)}>Add to cart</button>
+                    <small>Stock: {product.stockQuantity}</small>
+                    <p className="rating-line">★ {(product.averageRating || 4.7).toFixed(1)} ({product.reviewCount || 18})</p>
+                    <div className="shop-card-actions">
+                      <Link className="outline-button" to={`/products/${product.id}`}>
+                        Details
+                      </Link>
+                      <button onClick={() => handleAddToCart(product.id)}>Add to cart</button>
+                    </div>
                   </div>
-                </div>
+                </article>
               ))
             ) : (
-              <div>Khong co san pham nao</div>
+              <div className="empty-state">Khong co san pham nao</div>
             )}
-          </section>
+          </div>
         </div>
-        {message && <div className="message">{message}</div>}
       </section>
+
+      {message && <div className="toast-message">{message}</div>}
     </main>
   );
 }

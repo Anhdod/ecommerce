@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import api from '../api';
 
 export default function NavBar({ user, onLogout }) {
@@ -29,25 +29,33 @@ export default function NavBar({ user, onLogout }) {
 
   return (
     <header className="app-header">
-      <div className="brand">Ecommerce React</div>
+      <div className="brand"><span>Shop</span>Zone</div>
       <nav className="topnav">
         <NavLink to="/" end>
           Home
         </NavLink>
+        <Link to="/#shop">
+          Shop
+        </Link>
+        <Link to="/#categories">
+          Categories
+        </Link>
+        <NavLink to="/cart">Cart</NavLink>
+        <NavLink to="/orders">Orders</NavLink>
+        <NavLink to="/profile">Profile</NavLink>
         {user && (
           <NavLink to="/notifications">
             Notifications
             {unreadCount > 0 && <span className="nav-badge">{unreadCount}</span>}
           </NavLink>
         )}
-        <NavLink to="/cart">Cart</NavLink>
-        <NavLink to="/orders">Orders</NavLink>
         <NavLink to="/wishlist">Wishlist</NavLink>
-        <NavLink to="/addresses">Addresses</NavLink>
-        <NavLink to="/payments">Payments</NavLink>
-        <NavLink to="/profile">Profile</NavLink>
         {canManage && <NavLink to="/admin">Admin</NavLink>}
       </nav>
+      <div className="header-search">
+        <span>⌕</span>
+        <input placeholder="Search products..." />
+      </div>
       <div className="user-panel">
         {user ? (
           <>
