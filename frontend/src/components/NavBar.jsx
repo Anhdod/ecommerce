@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import api from '../api';
+import './NavBar.css';
 
 export default function NavBar({ user, onLogout }) {
   const canManage = user?.role === 'ADMIN' || user?.role === 'STAFF';
