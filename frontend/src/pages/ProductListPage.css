@@ -240,7 +240,10 @@
   letter-spacing: 0;
 }
 
-.section-title-row > a {
+.section-title-row > a,
+.category-expand-button {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
   color: var(--shop-blue);
   font-size: 14px;
@@ -248,24 +251,49 @@
   text-decoration: none;
 }
 
+.category-expand-button {
+  display: none;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+}
+
+.category-expand-button svg,
+.filter-category-toggle svg {
+  transition: transform 180ms ease;
+}
+
+.category-expand-button svg.expanded,
+.filter-category-toggle svg.expanded {
+  transform: rotate(180deg);
+}
+
+.category-section:has(.category-grid > button:nth-child(9)) .category-expand-button {
+  display: inline-flex;
+}
+
 .category-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
+}
+
+.category-grid:not(.expanded) > button:nth-child(n + 9) {
+  display: none;
 }
 
 .category-grid > button {
   position: relative;
   display: grid;
   min-width: 0;
-  min-height: 176px;
-  grid-template-columns: 1fr 90px;
+  min-height: 132px;
+  grid-template-columns: 1fr 76px;
   align-items: center;
   gap: 8px;
   overflow: hidden;
-  padding: 20px;
+  padding: 16px;
   border: 1px solid #e8edf3;
-  border-radius: 20px;
+  border-radius: 16px;
   background: #f8fafc;
   color: #0f172a;
   text-align: left;
@@ -286,7 +314,7 @@
   z-index: 2;
   display: grid;
   min-width: 0;
-  gap: 8px;
+  gap: 6px;
 }
 
 .category-grid small {
@@ -299,14 +327,14 @@
 
 .category-grid strong {
   overflow-wrap: anywhere;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.2;
 }
 
 .category-grid i {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   place-items: center;
   border-radius: 10px;
   background: #fff;
@@ -316,7 +344,7 @@
 
 .category-grid img {
   width: 100%;
-  height: 120px;
+  height: 92px;
   object-fit: contain;
   filter: drop-shadow(0 12px 12px rgba(15, 23, 42, 0.12));
 }
@@ -338,12 +366,18 @@
   border-radius: 20px;
   background: #fff;
   box-shadow: 0 10px 32px rgba(15, 23, 42, 0.06);
+  cursor: pointer;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .shop-card:hover {
   border-color: #cbd5e1;
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.1);
+}
+
+.shop-card:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.24);
+  outline-offset: 3px;
 }
 
 .shop-card-media {
@@ -353,7 +387,7 @@
   background: #f8fafc;
 }
 
-.shop-card-media > a {
+.card-media-content {
   display: block;
   height: 100%;
 }
@@ -458,6 +492,7 @@
 .product-name {
   display: -webkit-box;
   overflow: hidden;
+  margin: 0;
   color: #0f172a;
   font-size: 16px;
   font-weight: 700;
@@ -500,12 +535,11 @@
 
 .shop-card-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   margin-top: 4px;
 }
 
-.shop-card-actions a,
 .shop-card-actions button {
   display: inline-flex;
   min-width: 0;
@@ -551,12 +585,6 @@
 .shop-card-actions svg {
   width: 13px;
   height: 13px;
-}
-
-.outline-button {
-  border: 1px solid #dbe2ea;
-  background: #fff;
-  color: #334155;
 }
 
 .outline-button:hover {
@@ -678,6 +706,29 @@
   top: 96px;
   display: grid;
   gap: 24px;
+  max-height: calc(100vh - 120px);
+  padding-right: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.catalog-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.catalog-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.catalog-sidebar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.catalog-sidebar {
+  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-width: thin;
 }
 
 .filter-header {
@@ -733,6 +784,61 @@
 .filter-group > button.active {
   background: #eff6ff;
   color: var(--shop-blue);
+}
+
+.filter-category-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.filter-category-list > button {
+  display: flex;
+  min-width: 0;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 0 9px;
+  overflow: hidden;
+  border: 1px solid #e8edf3;
+  border-radius: 9px;
+  background: #fff;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.filter-category-list > button:hover,
+.filter-category-list > button.active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: var(--shop-blue);
+}
+
+.filter-category-list > button > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-category-list > button > small,
+.filter-category-list > .filter-category-all > span {
+  flex: 0 0 auto;
+  color: #94a3b8;
+  font-size: 9px;
+}
+
+.filter-category-list > .filter-category-all {
+  grid-column: 1 / -1;
+}
+
+.filter-category-toggle {
+  justify-content: center !important;
+  min-height: 32px !important;
+  color: var(--shop-blue) !important;
+  font-size: 11px !important;
 }
 
 .filter-group > button > span:not(.stars) {
@@ -1163,6 +1269,14 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .category-grid:not(.expanded) > button:nth-child(n + 7) {
+    display: none;
+  }
+
+  .category-section:has(.category-grid > button:nth-child(7)) .category-expand-button {
+    display: inline-flex;
+  }
+
   .featured-products-row,
   .catalog-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1192,6 +1306,14 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .category-grid:not(.expanded) > button:nth-child(n + 5) {
+    display: none;
+  }
+
+  .category-section:has(.category-grid > button:nth-child(5)) .category-expand-button {
+    display: inline-flex;
+  }
+
   .catalog-toolbar {
     grid-template-columns: 1fr 1fr auto;
   }
@@ -1211,6 +1333,7 @@
     z-index: 92;
     width: min(360px, 90vw);
     height: 100vh;
+    max-height: 100vh;
     padding: 24px;
     overflow-y: auto;
     background: #fff;
@@ -1310,7 +1433,15 @@
   }
 
   .category-grid > button {
-    min-height: 150px;
+    min-height: 118px;
+  }
+
+  .category-grid:not(.expanded) > button:nth-child(n + 3) {
+    display: none;
+  }
+
+  .category-section:has(.category-grid > button:nth-child(3)) .category-expand-button {
+    display: inline-flex;
   }
 
   .catalog-toolbar {

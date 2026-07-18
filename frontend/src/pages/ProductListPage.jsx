@@ -39,7 +39,10 @@ const categoryCopy = {
   phones: 'Điện thoại mới nhất',
   laptops: 'Laptop cho mọi công việc',
   audio: 'Âm thanh chất lượng cao',
+  tablets: 'Màn hình lớn, trải nghiệm linh hoạt',
+  smartwatches: 'Theo dõi sức khỏe mỗi ngày',
   accessories: 'Phụ kiện thiết yếu',
+  gaming: 'Thiết bị dành cho game thủ',
 };
 
 const fadeUp = {
@@ -48,7 +51,16 @@ const fadeUp = {
 };
 
 function ProductCard({ product, onAddToCart, onBuyNow, onToggleWishlist, featured = false }) {
+  const navigate = useNavigate();
   const rating = Number(product.averageRating || 4.7);
+  const openProduct = () => navigate(`/products/${product.id}`);
+
+  const handleCardKeyDown = (event) => {
+    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      openProduct();
+    }
+  };
 
   return (
     <motion.article
@@ -56,6 +68,11 @@ function ProductCard({ product, onAddToCart, onBuyNow, onToggleWishlist, feature
       variants={fadeUp}
       whileHover={{ y: -4 }}
       transition={{ duration: 0.2 }}
+      role="link"
+      tabIndex={0}
+      aria-label={`Xem chi tiết ${product.name}`}
+      onClick={openProduct}
+      onKeyDown={handleCardKeyDown}
     >
       <div className="shop-card-media">
         {featured && <span className="featured-label"><Sparkles size={13} /> Nổi bật</span>}
@@ -64,31 +81,33 @@ function ProductCard({ product, onAddToCart, onBuyNow, onToggleWishlist, feature
           aria-label={`Thêm ${product.name} vào yêu thích`}
           title="Thêm vào yêu thích"
           type="button"
-          onClick={() => onToggleWishlist(product.id)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleWishlist(product.id);
+          }}
         >
           <Heart size={18} />
         </button>
-        <Link to={`/products/${product.id}`} tabIndex={-1} aria-hidden="true">
+        <div className="card-media-content">
           {product.imageUrl ? (
             <img className="shop-card-image" src={assetUrl(product.imageUrl)} alt={product.name} />
           ) : (
             <div className="image-placeholder"><ShoppingBag size={42} /></div>
           )}
-        </Link>
+        </div>
       </div>
       <div className="shop-card-body">
         <div className="product-meta-row">
           <span>{product.categoryName || 'Sản phẩm'}</span>
           <span className="rating-line"><Star size={14} fill="currentColor" /> {rating.toFixed(1)}</span>
         </div>
-        <Link className="product-name" to={`/products/${product.id}`}>{product.name}</Link>
+        <h3 className="product-name">{product.name}</h3>
         <p className="product-description">{product.description || 'Sản phẩm chính hãng, giao hàng nhanh chóng.'}</p>
         <div className="product-price-row">
           <strong>{currency(product.price)}</strong>
           <small>{Number(product.stockQuantity || 0) > 0 ? `Còn ${product.stockQuantity}` : 'Hết hàng'}</small>
         </div>
-        <div className="shop-card-actions">
-          <Link className="outline-button" to={`/products/${product.id}`}>Chi tiết</Link>
+        <div className="shop-card-actions" onClick={(event) => event.stopPropagation()}>
           <button className="card-cart-button" onClick={() => onAddToCart(product)} type="button" disabled={Number(product.stockQuantity || 0) <= 0}>
             <ShoppingBag size={16} /> Thêm giỏ
           </button>
@@ -117,6 +136,8 @@ export default function ProductListPage({ user }) {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [categoriesExpanded, setCategoriesExpanded] = useState(false);
+  const [filterCategoriesExpanded, setFilterCategoriesExpanded] = useState(false);
   const [quickPurchase, setQuickPurchase] = useState(null);
   const [quickSubmitting, setQuickSubmitting] = useState(false);
 
@@ -124,8 +145,10 @@ export default function ProductListPage({ user }) {
     const merged = [...featuredCategories, ...categories].filter(
       (category, index, source) => source.findIndex((item) => item.id === category.id) === index
     );
-    return merged.slice(0, 5);
+    return merged;
   }, [categories, featuredCategories]);
+
+  const filterCategories = filterCategoriesExpanded ? categories : categories.slice(0, 4);
 
   const filteredProducts = useMemo(() => {
     const filtered = products.filter((product) => {
@@ -345,9 +368,16 @@ export default function ProductListPage({ user }) {
             <span className="section-kicker">Danh mục</span>
             <h2>Tìm đúng thứ bạn cần</h2>
           </div>
-          <a href="#shop">Xem tất cả <ArrowRight size={16} /></a>
+          <button
+            className="category-expand-button"
+            type="button"
+            onClick={() => setCategoriesExpanded((expanded) => !expanded)}
+          >
+            {categoriesExpanded ? 'Thu gọn' : 'Xem thêm'}
+            <ChevronDown size={16} className={categoriesExpanded ? 'expanded' : ''} />
+          </button>
         </div>
-        <motion.div className="category-grid" initial="hidden" animate="visible">
+        <motion.div className={`category-grid ${categoriesExpanded ? 'expanded' : ''}`} initial="hidden" animate="visible">
           {visibleCategories.map((category, index) => {
             const categoryProduct = products.find((product) => Number(product.categoryId) === Number(category.id));
             return (
@@ -432,19 +462,29 @@ export default function ProductListPage({ user }) {
             </div>
             <div className="filter-group">
               <h4>Danh mục</h4>
-              <button className={!selectedCategory ? 'active' : ''} onClick={() => setSelectedCategory(null)} type="button">
-                Tất cả <span>{products.length}</span>
-              </button>
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  className={selectedCategory === category.id ? 'active' : ''}
-                  onClick={() => setSelectedCategory(category.id)}
-                  type="button"
-                >
-                  {category.name}
+              <div className="filter-category-list">
+                <button className={`filter-category-all ${!selectedCategory ? 'active' : ''}`} onClick={() => setSelectedCategory(null)} type="button">
+                  Tất cả <span>{products.length}</span>
                 </button>
-              ))}
+                {filterCategories.map((category) => (
+                  <button
+                    key={category.id}
+                    className={selectedCategory === category.id ? 'active' : ''}
+                    onClick={() => setSelectedCategory(category.id)}
+                    title={category.name}
+                    type="button"
+                  >
+                    <span>{category.name}</span>
+                    <small>{products.filter((product) => Number(product.categoryId) === Number(category.id)).length}</small>
+                  </button>
+                ))}
+              </div>
+              {categories.length > 4 && (
+                <button className="filter-category-toggle" type="button" onClick={() => setFilterCategoriesExpanded((expanded) => !expanded)}>
+                  {filterCategoriesExpanded ? 'Thu gọn' : `Xem thêm ${categories.length - 4} danh mục`}
+                  <ChevronDown size={14} className={filterCategoriesExpanded ? 'expanded' : ''} />
+                </button>
+              )}
             </div>
             <div className="filter-group">
               <h4>Khoảng giá</h4>

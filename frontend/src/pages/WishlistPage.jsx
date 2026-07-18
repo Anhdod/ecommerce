@@ -107,23 +107,32 @@ export default function WishlistPage({ user }) {
                     layout
                     variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }}
                     exit={{ opacity: 0, scale: 0.96 }}
+                    role="link"
+                    tabIndex={0}
+                    aria-label={`Xem chi tiết ${product.name}`}
+                    onClick={() => navigate(`/products/${product.id}`)}
+                    onKeyDown={(event) => {
+                      if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                        event.preventDefault();
+                        navigate(`/products/${product.id}`);
+                      }
+                    }}
                   >
                     <div className="wishlist-card-media">
                       <span>{product.categoryName || 'Sản phẩm'}</span>
-                      <button type="button" onClick={() => toggleLike(product.id)} disabled={updatingId === product.id} aria-label="Xóa khỏi yêu thích" title="Xóa khỏi yêu thích">
+                      <button type="button" onClick={(event) => { event.stopPropagation(); toggleLike(product.id); }} disabled={updatingId === product.id} aria-label="Xóa khỏi yêu thích" title="Xóa khỏi yêu thích">
                         <Heart size={18} fill="currentColor" />
                       </button>
-                      <Link to={`/products/${product.id}`}>
+                      <div className="wishlist-card-product">
                         {product.imageUrl ? <img src={assetUrl(product.imageUrl)} alt={product.name} /> : <ShoppingBag size={44} />}
-                      </Link>
+                      </div>
                     </div>
                     <div className="wishlist-card-body">
                       <div className="wishlist-rating"><Star size={14} fill="currentColor" /><strong>{rating.toFixed(1)}</strong><span>({product.reviewCount || 0})</span></div>
-                      <Link className="wishlist-product-name" to={`/products/${product.id}`}>{product.name}</Link>
+                      <h3 className="wishlist-product-name">{product.name}</h3>
                       <p>{product.description || 'Sản phẩm chính hãng được tuyển chọn.'}</p>
                       <div className="wishlist-price-row"><strong>{currency(product.price)}</strong><span className={inStock ? 'available' : 'unavailable'}>{inStock ? `Còn ${product.stockQuantity}` : 'Hết hàng'}</span></div>
-                      <div className="wishlist-actions">
-                        <Link to={`/products/${product.id}`}>Chi tiết</Link>
+                      <div className="wishlist-actions" onClick={(event) => event.stopPropagation()}>
                         <button type="button" onClick={() => addToCart(product)} disabled={!inStock || updatingId === product.id}><ShoppingBag size={16} /> Thêm giỏ hàng</button>
                       </div>
                     </div>
