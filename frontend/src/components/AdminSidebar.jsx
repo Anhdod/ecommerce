@@ -38,6 +38,7 @@ const navigationGroups = [
     items: [
       { to: '/admin/orders', label: 'Đơn hàng', icon: ShoppingBag },
       { to: '/admin/payments', label: 'Thanh toán', icon: CircleDollarSign },
+      { to: '/admin/expenses', label: 'Chi phí', icon: ReceiptText },
       { to: '/admin/coupons', label: 'Mã giảm giá', icon: TicketPercent },
     ],
   },

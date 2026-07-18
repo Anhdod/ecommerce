@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  CircleDollarSign,
   Clock3,
   Eye,
   Moon,
@@ -45,6 +46,14 @@ const formatDate = (value) => value
   ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
   : 'Chưa có thời gian';
 
+const emptyCostForm = {
+  shippingCost: '',
+  packagingCost: '',
+  paymentFee: '',
+  platformFee: '',
+  refundAmount: '',
+};
+
 export default function AdminOrdersPage({ user }) {
   const canManage = user?.role === 'ADMIN' || user?.role === 'STAFF';
   const [orders, setOrders] = useState([]);
@@ -53,6 +62,8 @@ export default function AdminOrdersPage({ user }) {
   const [status, setStatus] = useState('ALL');
   const [paymentStatus, setPaymentStatus] = useState('ALL');
   const [trackingDrafts, setTrackingDrafts] = useState({});
+  const [costOrder, setCostOrder] = useState(null);
+  const [costForm, setCostForm] = useState(emptyCostForm);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [message, setMessage] = useState(null);
@@ -175,6 +186,55 @@ export default function AdminOrdersPage({ user }) {
     }
   };
 
+  const openCostEditor = (order) => {
+    setCostOrder(order);
+    setCostForm({
+      shippingCost: order.shippingCost ?? 0,
+      packagingCost: order.packagingCost ?? 0,
+      paymentFee: order.paymentFee ?? 0,
+      platformFee: order.platformFee ?? 0,
+      refundAmount: order.refundAmount ?? 0,
+    });
+  };
+
+  const closeCostEditor = () => {
+    if (busyId === costOrder?.orderId) return;
+    setCostOrder(null);
+    setCostForm(emptyCostForm);
+  };
+
+  const saveOrderCosts = async (event) => {
+    event.preventDefault();
+    if (!costOrder) return;
+    try {
+      setBusyId(costOrder.orderId);
+      await api(`/api/orders/${costOrder.orderId}/costs`, {
+        method: 'PUT',
+        body: Object.fromEntries(Object.entries(costForm).map(([key, value]) => [key, Number(value || 0)])),
+      });
+      showMessage(`Đã cập nhật chi phí đơn #${costOrder.orderId}.`);
+      setCostOrder(null);
+      setCostForm(emptyCostForm);
+      await loadData();
+    } catch (error) {
+      showMessage(error?.message || 'Không cập nhật được chi phí đơn hàng.', 'error');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const costPreview = useMemo(() => {
+    if (!costOrder) return { revenue: 0, costs: 0, profit: 0 };
+    const refund = toVndAmount(costForm.refundAmount);
+    const revenue = toVndAmount(costOrder.totalPrice) - refund;
+    const costs = toVndAmount(costOrder.costOfGoods)
+      + toVndAmount(costForm.shippingCost)
+      + toVndAmount(costForm.packagingCost)
+      + toVndAmount(costForm.paymentFee)
+      + toVndAmount(costForm.platformFee);
+    return { revenue, costs, profit: revenue - costs };
+  }, [costForm, costOrder]);
+
   const toggleTheme = () => {
     const next = theme === 'light' ? 'dark' : 'light';
     setTheme(next);
@@ -236,8 +296,8 @@ export default function AdminOrdersPage({ user }) {
                         <td><span className={`admin-payment-badge ${String(payment?.status || 'PENDING').toLowerCase()}`}>{paymentMeta[payment?.status] || 'Chưa có giao dịch'}</span><small className="admin-payment-method">{payment?.paymentMethod === 'COD' ? 'COD' : payment?.paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản' : 'Thẻ'}</small></td>
                         <td><span className={`admin-order-status ${String(order.status).toLowerCase()}`}><StatusIcon size={13} /> {meta.label}</span></td>
                         <td>{order.status === 'CONFIRMED' || order.status === 'SHIPPING' ? <div className="admin-tracking-editor"><input value={trackingDrafts[order.orderId] || ''} onChange={(event) => setTrackingDrafts((current) => ({ ...current, [order.orderId]: event.target.value }))} placeholder="Nhập mã vận đơn" /><button type="button" title="Lưu mã vận đơn" disabled={busyId === order.orderId} onClick={() => updateTracking(order.orderId)}><Save size={14} /></button></div> : <span className="admin-tracking-code">{order.trackingCode || 'Chưa cần vận đơn'}</span>}</td>
-                        <td><strong className="admin-order-total">{currency(order.totalPrice)}</strong></td>
-                        <td><div className="admin-order-actions"><Link to={`/orders/${order.orderId}`} title="Xem chi tiết"><Eye size={15} /></Link>{canCancel && <button className="cancel" type="button" disabled={busyId === order.orderId} title="Hủy đơn và hoàn kho" onClick={() => cancelOrder(order)}><XCircle size={14} /><span>Hủy</span></button>}{meta.next && <button type="button" disabled={disabled} title={onlineUnpaid ? 'Chờ khách thanh toán' : missingTracking ? 'Nhập và lưu mã vận đơn trước' : meta.action} onClick={() => advanceOrder(order)}>{busyId === order.orderId ? <RefreshCw className="admin-orders-spinning" size={14} /> : <><span>{meta.action}</span><ArrowRight size={14} /></>}</button>}</div></td>
+                        <td><div className="admin-order-financial"><strong className="admin-order-total">{currency(order.totalPrice)}</strong><small className={toVndAmount(order.orderProfit) < 0 ? 'negative' : ''}>LN đơn: {currency(order.orderProfit || 0)}</small></div></td>
+                        <td><div className="admin-order-actions"><Link to={`/orders/${order.orderId}`} title="Xem chi tiết"><Eye size={15} /></Link><button className="finance" type="button" disabled={busyId === order.orderId} title="Cập nhật chi phí và lợi nhuận" onClick={() => openCostEditor(order)}><CircleDollarSign size={15} /></button>{canCancel && <button className="cancel" type="button" disabled={busyId === order.orderId} title="Hủy đơn và hoàn kho" onClick={() => cancelOrder(order)}><XCircle size={14} /><span>Hủy</span></button>}{meta.next && <button type="button" disabled={disabled} title={onlineUnpaid ? 'Chờ khách thanh toán' : missingTracking ? 'Nhập và lưu mã vận đơn trước' : meta.action} onClick={() => advanceOrder(order)}>{busyId === order.orderId ? <RefreshCw className="admin-orders-spinning" size={14} /> : <><span>{meta.action}</span><ArrowRight size={14} /></>}</button>}</div></td>
                       </tr>
                     );
                   })}</tbody>
@@ -247,6 +307,27 @@ export default function AdminOrdersPage({ user }) {
           </section>
         </div>
       </div>
+
+      <AnimatePresence>{costOrder && <>
+        <motion.button className="admin-order-cost-overlay" type="button" aria-label="Đóng form chi phí" onClick={closeCostEditor} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
+        <motion.aside className="admin-order-cost-drawer" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ duration: .22 }}>
+          <header><div><span>Đơn hàng #{costOrder.orderId}</span><h2>Chi phí và lợi nhuận</h2></div><button type="button" title="Đóng" onClick={closeCostEditor}><X size={18} /></button></header>
+          <form onSubmit={saveOrderCosts}>
+            <section className="admin-order-profit-preview">
+              <div><span>Doanh thu thuần</span><strong>{currency(costPreview.revenue)}</strong></div>
+              <div><span>Tổng chi phí đơn</span><strong>{currency(costPreview.costs)}</strong></div>
+              <div className={costPreview.profit < 0 ? 'negative' : ''}><span>Lợi nhuận đơn</span><strong>{currency(costPreview.profit)}</strong></div>
+            </section>
+            <div className="admin-order-cost-breakdown"><span>Giá vốn sản phẩm</span><strong>{currency(costOrder.costOfGoods || 0)}</strong></div>
+            <label>Chi phí giao hàng thực tế<input type="number" min="0" step="1" value={costForm.shippingCost} onChange={(event) => setCostForm((current) => ({ ...current, shippingCost: event.target.value }))} required /></label>
+            <label>Chi phí đóng gói<input type="number" min="0" step="1" value={costForm.packagingCost} onChange={(event) => setCostForm((current) => ({ ...current, packagingCost: event.target.value }))} required /></label>
+            <label>Phí cổng thanh toán<input type="number" min="0" step="1" value={costForm.paymentFee} onChange={(event) => setCostForm((current) => ({ ...current, paymentFee: event.target.value }))} required /></label>
+            <label>Phí sàn hoặc hoa hồng<input type="number" min="0" step="1" value={costForm.platformFee} onChange={(event) => setCostForm((current) => ({ ...current, platformFee: event.target.value }))} required /></label>
+            <label>Số tiền đã hoàn cho khách<input type="number" min="0" max={costOrder.totalPrice} step="1" value={costForm.refundAmount} onChange={(event) => setCostForm((current) => ({ ...current, refundAmount: event.target.value }))} required /></label>
+            <footer><button type="button" onClick={closeCostEditor}>Hủy</button><button type="submit" disabled={busyId === costOrder.orderId}><Save size={15} /> {busyId === costOrder.orderId ? 'Đang lưu...' : 'Lưu chi phí'}</button></footer>
+          </form>
+        </motion.aside>
+      </>}</AnimatePresence>
 
       <AnimatePresence>{message && <motion.div className={`admin-orders-toast ${message.type}`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}>{message.type === 'success' ? <Check size={17} /> : <X size={17} />} {message.text}</motion.div>}</AnimatePresence>
     </main>

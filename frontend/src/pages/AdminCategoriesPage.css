@@ -47,6 +47,7 @@
 .admin-category-name > span { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; border-radius: 8px; }
 .admin-category-name > div { display: grid; gap: 3px; }
 .admin-category-name strong { color: var(--admin-text); font-size: 9px; }
+.admin-category-name-link { color: var(--admin-text); font-size: 9px; font-weight: 700; text-decoration: none; }.admin-category-name-link:hover { color: #2563eb; }
 .admin-category-name small { color: var(--admin-muted); font-size: 7px; }
 .admin-category-description { width: min(32vw, 420px); margin: 0; overflow: hidden; color: var(--admin-muted-strong); font-size: 8px; line-height: 1.55; text-overflow: ellipsis; white-space: nowrap; }
 .admin-category-count { display: inline-flex; align-items: center; gap: 5px; padding: 6px 7px; border-radius: 6px; background: #eff6ff; color: #2563eb; font-size: 8px; font-weight: 700; text-decoration: none; white-space: nowrap; }

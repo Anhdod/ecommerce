@@ -5,7 +5,9 @@ import com.example.ecommerce.dto.admin.OrderStatusStatResponse;
 import com.example.ecommerce.dto.admin.RevenuePointResponse;
 import com.example.ecommerce.dto.admin.TopCustomerResponse;
 import com.example.ecommerce.entity.order.OrderStatus;
+import com.example.ecommerce.entity.payment.Payment;
 import com.example.ecommerce.entity.payment.PaymentStatus;
+import com.example.ecommerce.repository.finance.OperatingExpenseRepository;
 import com.example.ecommerce.repository.order.OrderRepository;
 import com.example.ecommerce.repository.payment.PaymentRepository;
 import com.example.ecommerce.repository.products.ProductRepository;
@@ -13,8 +15,10 @@ import com.example.ecommerce.repository.auth.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -40,13 +44,37 @@ public class AdminDashboardService {
     @Autowired
     private com.example.ecommerce.repository.order.OrderItemRepository orderItemRepository;
 
-    @Cacheable(value = "adminDashboardSummary", key = "'summary'")
-    public AdminDashboardResponse getDashboardSummary() {
-        BigDecimal totalRevenue = paymentRepository.findByStatus(PaymentStatus.PAID).stream()
-                .map(payment -> payment.getAmount() == null ? BigDecimal.ZERO : payment.getAmount())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    @Autowired
+    private OperatingExpenseRepository operatingExpenseRepository;
 
-        long totalPaidPayments = paymentRepository.findByStatus(PaymentStatus.PAID).size();
+    @Cacheable(value = "adminDashboardSummary", key = "'summary-v3'")
+    @Transactional(readOnly = true)
+    public AdminDashboardResponse getDashboardSummary() {
+        List<Payment> paidPayments = paymentRepository.findByStatus(PaymentStatus.PAID).stream()
+                .filter(payment -> payment.getOrder().getStatus() != OrderStatus.CANCELLED)
+                .toList();
+        BigDecimal totalRevenue = paidPayments.stream()
+                .map(payment -> payment.getOrder().calculateNetRevenue())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCost = paidPayments.stream()
+                .map(this::calculateOrderCost)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalGrossProfit = paidPayments.stream()
+                .map(payment -> payment.getOrder().calculateGrossProfit())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalOrderProfit = paidPayments.stream()
+                .map(payment -> payment.getOrder().calculateOrderProfit())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalOperatingExpense = operatingExpenseRepository.findAll().stream()
+                .map(expense -> expense.getAmount() == null ? BigDecimal.ZERO : expense.getAmount())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalProfit = totalOrderProfit.subtract(totalOperatingExpense);
+        BigDecimal profitMargin = totalRevenue.signum() == 0
+                ? BigDecimal.ZERO
+                : totalProfit.multiply(BigDecimal.valueOf(100))
+                        .divide(totalRevenue, 2, RoundingMode.HALF_UP);
+
+        long totalPaidPayments = paidPayments.size();
         long totalPendingPayments = paymentRepository.findByStatus(PaymentStatus.PENDING).size();
 
         java.util.List<com.example.ecommerce.dto.admin.TopSellingProductResponse> topSelling = orderItemRepository
@@ -60,6 +88,12 @@ public class AdminDashboardService {
                 .deliveredOrders(orderRepository.countByStatus(OrderStatus.DELIVERED))
                 .cancelledOrders(orderRepository.countByStatus(OrderStatus.CANCELLED))
                 .totalRevenue(totalRevenue)
+                .totalCost(totalCost)
+                .totalGrossProfit(totalGrossProfit)
+                .totalOrderProfit(totalOrderProfit)
+                .totalOperatingExpense(totalOperatingExpense)
+                .totalProfit(totalProfit)
+                .profitMargin(profitMargin)
                 .totalPaidPayments(totalPaidPayments)
                 .totalPendingPayments(totalPendingPayments)
                 .totalProducts(productRepository.count())
@@ -76,13 +110,15 @@ public class AdminDashboardService {
                 .findTopSellingProducts(org.springframework.data.domain.PageRequest.of(0, Math.min(limit, 100)));
     }
 
-    @Cacheable(value = "adminDashboardRevenue", key = "#groupBy + ':' + #from + ':' + #to")
+    @Cacheable(value = "adminDashboardRevenue", key = "'v3:' + #groupBy + ':' + #from + ':' + #to")
+    @Transactional(readOnly = true)
     public List<RevenuePointResponse> getRevenueTimeline(String groupBy, LocalDate from, LocalDate to) {
         boolean monthly = "month".equalsIgnoreCase(groupBy);
         DateTimeFormatter formatter = monthly ? DateTimeFormatter.ofPattern("yyyy-MM") : DateTimeFormatter.ISO_DATE;
         Map<String, RevenueAccumulator> grouped = new TreeMap<>();
 
         paymentRepository.findByStatus(PaymentStatus.PAID).stream()
+                .filter(payment -> payment.getOrder().getStatus() != OrderStatus.CANCELLED)
                 .filter(payment -> payment.getPaymentDate() != null)
                 .filter(payment -> from == null || !payment.getPaymentDate().toLocalDate().isBefore(from))
                 .filter(payment -> to == null || !payment.getPaymentDate().toLocalDate().isAfter(to))
@@ -91,15 +127,35 @@ public class AdminDashboardService {
                             ? YearMonth.from(payment.getPaymentDate()).format(formatter)
                             : payment.getPaymentDate().toLocalDate().format(formatter);
                     RevenueAccumulator accumulator = grouped.computeIfAbsent(period, key -> new RevenueAccumulator());
-                    accumulator.revenue = accumulator.revenue
-                            .add(payment.getAmount() == null ? BigDecimal.ZERO : payment.getAmount());
+                    accumulator.revenue = accumulator.revenue.add(payment.getOrder().calculateNetRevenue());
+                    accumulator.cost = accumulator.cost.add(calculateOrderCost(payment));
+                    accumulator.grossProfit = accumulator.grossProfit.add(payment.getOrder().calculateGrossProfit());
+                    accumulator.orderProfit = accumulator.orderProfit.add(payment.getOrder().calculateOrderProfit());
                     accumulator.paymentCount++;
+                });
+
+        operatingExpenseRepository.findAll().stream()
+                .filter(expense -> expense.getExpenseDate() != null)
+                .filter(expense -> from == null || !expense.getExpenseDate().isBefore(from))
+                .filter(expense -> to == null || !expense.getExpenseDate().isAfter(to))
+                .forEach(expense -> {
+                    String period = monthly
+                            ? YearMonth.from(expense.getExpenseDate()).format(formatter)
+                            : expense.getExpenseDate().format(formatter);
+                    RevenueAccumulator accumulator = grouped.computeIfAbsent(period, key -> new RevenueAccumulator());
+                    accumulator.operatingExpense = accumulator.operatingExpense
+                            .add(expense.getAmount() == null ? BigDecimal.ZERO : expense.getAmount());
                 });
 
         return grouped.entrySet().stream()
                 .map(entry -> RevenuePointResponse.builder()
                         .period(entry.getKey())
                         .revenue(entry.getValue().revenue)
+                        .cost(entry.getValue().cost)
+                        .grossProfit(entry.getValue().grossProfit)
+                        .orderProfit(entry.getValue().orderProfit)
+                        .operatingExpense(entry.getValue().operatingExpense)
+                        .profit(entry.getValue().orderProfit.subtract(entry.getValue().operatingExpense))
                         .paymentCount(entry.getValue().paymentCount)
                         .build())
                 .toList();
@@ -125,6 +181,18 @@ public class AdminDashboardService {
 
     private static class RevenueAccumulator {
         private BigDecimal revenue = BigDecimal.ZERO;
+        private BigDecimal cost = BigDecimal.ZERO;
+        private BigDecimal grossProfit = BigDecimal.ZERO;
+        private BigDecimal orderProfit = BigDecimal.ZERO;
+        private BigDecimal operatingExpense = BigDecimal.ZERO;
         private long paymentCount;
+    }
+
+    private BigDecimal calculateOrderCost(Payment payment) {
+        return payment.getOrder().getItems().stream()
+                .map(item -> item.getCostPrice() == null
+                        ? BigDecimal.ZERO
+                        : item.getCostPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

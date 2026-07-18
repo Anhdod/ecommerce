@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Boxes,
@@ -30,6 +30,7 @@ const initialProduct = {
   name: '',
   description: '',
   price: '',
+  costPrice: '',
   stockQuantity: 0,
   categoryId: '',
   imageUrl: '',
@@ -40,6 +41,8 @@ const initialProduct = {
 };
 
 export default function AdminProductsPage({ user }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryParam = searchParams.get('categoryId') || '';
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(initialProduct);
@@ -50,7 +53,7 @@ export default function AdminProductsPage({ user }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState(categoryParam);
   const [sort, setSort] = useState('latest');
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -141,6 +144,7 @@ export default function AdminProductsPage({ user }) {
       name: product.name || '',
       description: product.description || '',
       price: product.price || '',
+      costPrice: product.costPrice ?? '',
       stockQuantity: product.stockQuantity || 0,
       categoryId: product.categoryId || '',
       imageUrl: product.imageUrl || '',
@@ -156,6 +160,7 @@ export default function AdminProductsPage({ user }) {
     name: form.name.trim(),
     description: form.description.trim(),
     price: Number(form.price),
+    costPrice: Number(form.costPrice),
     stockQuantity: Number(form.stockQuantity),
     categoryId: Number(form.categoryId),
     imageUrl: form.imageUrl.trim() || null,
@@ -263,6 +268,12 @@ export default function AdminProductsPage({ user }) {
     setAppliedSearch(search.trim());
   };
 
+  const selectCategory = (categoryId) => {
+    setCategoryFilter(categoryId);
+    setPage(0);
+    setSearchParams(categoryId ? { categoryId } : {}, { replace: true });
+  };
+
   const toggleTheme = () => {
     setTheme((current) => {
       const next = current === 'light' ? 'dark' : 'light';
@@ -275,6 +286,11 @@ export default function AdminProductsPage({ user }) {
     if (canManage) loadCategories();
     return () => window.clearTimeout(messageTimer.current);
   }, [user]);
+
+  useEffect(() => {
+    setCategoryFilter(categoryParam);
+    setPage(0);
+  }, [categoryParam]);
 
   useEffect(() => {
     if (canManage) loadProducts();
@@ -310,20 +326,26 @@ export default function AdminProductsPage({ user }) {
           <section className="admin-products-panel">
             <div className="admin-products-toolbar">
               <form onSubmit={submitSearch}><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm tên sản phẩm..." /><button type="submit">Tìm</button></form>
-              <div><select value={categoryFilter} onChange={(event) => { setCategoryFilter(event.target.value); setPage(0); }}><option value="">Tất cả danh mục</option>{categories.map((category) => <option value={category.id} key={category.id}>{category.name}</option>)}</select><select value={sort} onChange={(event) => { setSort(event.target.value); setPage(0); }}><option value="latest">Mới nhất</option><option value="oldest">Cũ nhất</option><option value="priceAsc">Giá tăng dần</option><option value="priceDesc">Giá giảm dần</option><option value="nameAsc">Tên A-Z</option><option value="soldDesc">Bán chạy</option></select></div>
+              <div><select value={sort} onChange={(event) => { setSort(event.target.value); setPage(0); }}><option value="latest">Mới nhất</option><option value="oldest">Cũ nhất</option><option value="priceAsc">Giá tăng dần</option><option value="priceDesc">Giá giảm dần</option><option value="nameAsc">Tên A-Z</option><option value="soldDesc">Bán chạy</option></select></div>
             </div>
+
+            <nav className="admin-product-category-tabs" aria-label="Lọc sản phẩm theo danh mục">
+              <button className={!categoryFilter ? 'active' : ''} type="button" onClick={() => selectCategory('')}>Tất cả</button>
+              {categories.map((category) => <button className={categoryFilter === String(category.id) ? 'active' : ''} type="button" onClick={() => selectCategory(String(category.id))} key={category.id}>{category.name}</button>)}
+            </nav>
 
             {loading && !products.length ? (
               <div className="admin-products-loading"><span /><span /><span /><span /></div>
             ) : products.length ? (
               <div className="admin-products-table-wrap">
                 <table className="admin-products-table">
-                  <thead><tr><th>Sản phẩm</th><th>Danh mục</th><th>Giá bán</th><th>Tồn kho</th><th>Hiệu suất</th><th>Trạng thái</th><th aria-label="Thao tác" /></tr></thead>
+                  <thead><tr><th>Sản phẩm</th><th>Danh mục</th><th>Giá bán</th><th>Giá vốn</th><th>Tồn kho</th><th>Hiệu suất</th><th>Trạng thái</th><th aria-label="Thao tác" /></tr></thead>
                   <tbody>{products.map((product) => (
                     <tr key={product.id}>
                       <td><div className="admin-product-cell"><span>{product.imageUrl ? <img src={assetUrl(product.imageUrl)} alt={product.name} /> : <ImageOff size={20} />}</span><div><strong>{product.name}</strong><small>#{product.id} · {product.description || 'Chưa có mô tả'}</small></div></div></td>
                       <td><span className="admin-category-tag">{product.categoryName || 'Chưa phân loại'}</span></td>
                       <td><strong className="admin-product-price">{currency(product.price)}</strong></td>
+                      <td><div className="admin-product-cost"><strong>{currency(product.costPrice || 0)}</strong><small>{Number(product.price) > 0 ? `${Math.max(0, ((Number(product.price) - Number(product.costPrice || 0)) / Number(product.price)) * 100).toFixed(1)}% biên LN` : '0% biên LN'}</small></div></td>
                       <td><span className={`admin-stock-value ${Number(product.stockQuantity) === 0 ? 'empty' : Number(product.stockQuantity) <= 5 ? 'low' : ''}`}>{product.stockQuantity}</span></td>
                       <td><div className="admin-product-performance"><span><Star size={12} fill="currentColor" /> {Number(product.averageRating || 0).toFixed(1)}</span><small>{product.salesCount || 0} đã bán</small></div></td>
                       <td><div className="admin-product-badges">{product.featured && <span className="is-featured">Nổi bật</span>}<span className={product.active ? 'is-active' : 'is-inactive'}>{product.active ? 'Đang bán' : 'Đã ẩn'}</span></div></td>
@@ -356,7 +378,8 @@ export default function AdminProductsPage({ user }) {
                   <small>Tối đa 8 ảnh phụ cho mỗi sản phẩm.</small>
                 </div>
                 <label>Tên sản phẩm<input value={form.name} onChange={handleChange('name')} minLength={3} maxLength={255} placeholder="Nhập tên sản phẩm" required /></label>
-                <div className="admin-product-form-row"><label>Danh mục<select value={form.categoryId} onChange={handleChange('categoryId')} required><option value="">Chọn danh mục</option>{categories.map((category) => <option value={category.id} key={category.id}>{category.name}</option>)}</select></label><label>Giá<input type="number" min="1" step="0.01" value={form.price} onChange={handleChange('price')} placeholder="0" required /></label></div>
+                <div className="admin-product-form-row"><label>Danh mục<select value={form.categoryId} onChange={handleChange('categoryId')} required><option value="">Chọn danh mục</option>{categories.map((category) => <option value={category.id} key={category.id}>{category.name}</option>)}</select></label><label>Giá bán<input type="number" min="1" step="1" value={form.price} onChange={handleChange('price')} placeholder="0 VND" required /></label></div>
+                <div className="admin-product-form-row"><label>Giá vốn<input type="number" min="0" step="1" value={form.costPrice} onChange={handleChange('costPrice')} placeholder="0 VND" required /><small className="admin-field-hint">Giá nhập của một sản phẩm.</small></label><label>Biên lợi nhuận<input value={Number(form.price) > 0 && form.costPrice !== '' ? `${(((Number(form.price) - Number(form.costPrice)) / Number(form.price)) * 100).toFixed(1)}%` : '0%'} readOnly /></label></div>
                 <div className="admin-product-form-row"><label>Tồn kho<input type="number" min="0" value={form.stockQuantity} onChange={handleChange('stockQuantity')} required /></label><label>URL hình ảnh<input value={form.imageUrl} onChange={handleChange('imageUrl')} placeholder="https://..." /></label></div>
                 <div className="admin-product-form-row"><label>Thương hiệu<input value={form.brand} onChange={handleChange('brand')} maxLength={100} placeholder="Apple, Sony..." /></label><label>Bảo hành (tháng)<input type="number" min="0" value={form.warrantyMonths} onChange={handleChange('warrantyMonths')} /></label></div>
                 <label>Màu sắc<input value={form.colors} onChange={handleChange('colors')} placeholder="Đen, Trắng, Xanh" /><small className="admin-field-hint">Phân cách từng màu bằng dấu phẩy.</small></label>

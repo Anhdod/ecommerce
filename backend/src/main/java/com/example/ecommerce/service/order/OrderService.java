@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 import com.example.ecommerce.dto.order.CheckoutRequest;
+import com.example.ecommerce.dto.order.AdminOrderCostRequest;
 import com.example.ecommerce.dto.order.OrderItemResponse;
 import com.example.ecommerce.dto.order.OrderResponse;
 import com.example.ecommerce.dto.order.OrderUpdateRequest;
@@ -36,6 +37,7 @@ import com.example.ecommerce.service.notification.NotificationService;
 import com.example.ecommerce.entity.notification.NotificationType;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -147,6 +149,7 @@ public class OrderService {
                     .product(cartItem.getProduct())
                     .quantity(cartItem.getQuantity())
                     .price(cartItem.getPrice())
+                    .costPrice(cartItem.getProduct().getCostPrice())
                     .selectedColor(cartItem.getSelectedColor())
                     .build();
 
@@ -491,6 +494,24 @@ public class OrderService {
         return convertToResponse(updatedOrder);
     }
 
+    @Transactional
+    @CacheEvict(value = { "adminDashboardSummary", "adminDashboardRevenue" }, allEntries = true)
+    public OrderResponse updateOrderCosts(Long orderId, AdminOrderCostRequest request) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+        if (request.getRefundAmount().compareTo(order.getTotalPrice()) > 0) {
+            throw new RuntimeException("Số tiền hoàn không được lớn hơn tổng tiền đơn hàng");
+        }
+
+        order.setShippingCost(request.getShippingCost());
+        order.setPackagingCost(request.getPackagingCost());
+        order.setPaymentFee(request.getPaymentFee());
+        order.setPlatformFee(request.getPlatformFee());
+        order.setRefundAmount(request.getRefundAmount());
+        return convertToResponse(orderRepository.save(order));
+    }
+
     // ================= CANCEL =================
     @Transactional
     public void cancelOrder(Long orderId) {
@@ -598,6 +619,7 @@ public class OrderService {
 
     // ================= CONVERT =================
     private OrderResponse convertToResponse(Order order) {
+        boolean manager = canViewFinancials();
         List<OrderItemResponse> items = order.getItems().stream()
                 .map(item -> OrderItemResponse.builder()
                         .orderItemId(item.getId())
@@ -622,11 +644,31 @@ public class OrderService {
                 .status(order.getStatus())
                 .shippingMethod(order.getShippingMethod())
                 .shippingFee(order.getShippingFee())
+                .shippingCost(manager ? zeroIfNull(order.getShippingCost()) : null)
+                .packagingCost(manager ? zeroIfNull(order.getPackagingCost()) : null)
+                .paymentFee(manager ? zeroIfNull(order.getPaymentFee()) : null)
+                .platformFee(manager ? zeroIfNull(order.getPlatformFee()) : null)
+                .refundAmount(manager ? zeroIfNull(order.getRefundAmount()) : null)
+                .costOfGoods(manager ? order.calculateCostOfGoods() : null)
+                .grossProfit(manager ? order.calculateGrossProfit() : null)
+                .orderProfit(manager ? order.calculateOrderProfit() : null)
                 .shippingAddress(order.getShippingAddress())
                 .phoneNumber(order.getPhoneNumber())
                 .trackingCode(order.getTrackingCode())
                 .createdAt(order.getCreatedAt())
                 .build();
+    }
+
+    private boolean canViewFinancials() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.isAuthenticated()
+                && authentication.getAuthorities().stream()
+                        .map(authority -> authority.getAuthority())
+                        .anyMatch(authority -> "ROLE_ADMIN".equals(authority) || "ROLE_STAFF".equals(authority));
+    }
+
+    private BigDecimal zeroIfNull(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 }
 

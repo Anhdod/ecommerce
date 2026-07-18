@@ -40,6 +40,10 @@ public class User implements UserDetails {
     @Builder.Default
     private boolean enabled = true;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean deleted = false;
+
     private String phoneNumber;
     private String address;
 

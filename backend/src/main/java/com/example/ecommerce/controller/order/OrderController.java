@@ -2,6 +2,7 @@ package com.example.ecommerce.controller.order;
 
 import com.example.ecommerce.dto.ApiResponse;
 import com.example.ecommerce.dto.order.CheckoutPreviewResponse;
+import com.example.ecommerce.dto.order.AdminOrderCostRequest;
 import com.example.ecommerce.dto.order.CheckoutRequest;
 import com.example.ecommerce.dto.order.OrderResponse;
 import com.example.ecommerce.dto.order.OrderStatusHistoryResponse;
@@ -139,6 +140,16 @@ public class OrderController {
                 return ResponseEntity.ok(
                                 ApiResponse.success("Cap nhat ma van don thanh cong",
                                                 orderService.updateTrackingCode(id, trackingCode)));
+        }
+
+        @PutMapping("/{id}/costs")
+        @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+        public ResponseEntity<ApiResponse<OrderResponse>> updateOrderCosts(
+                        @PathVariable Long id,
+                        @Valid @RequestBody AdminOrderCostRequest request) {
+                return ResponseEntity.ok(
+                                ApiResponse.success("Cập nhật chi phí đơn hàng thành công",
+                                                orderService.updateOrderCosts(id, request)));
         }
 
         @DeleteMapping("/{orderId}")

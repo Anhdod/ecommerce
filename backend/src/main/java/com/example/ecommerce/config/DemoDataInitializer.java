@@ -107,10 +107,12 @@ public class DemoDataInitializer {
                             String imageUrl,
                             Category category,
                             boolean featured) {
+        BigDecimal salePrice = new BigDecimal(price);
         return Product.builder()
                 .name(name)
                 .description(description)
-                .price(new BigDecimal(price))
+                .price(salePrice)
+                .costPrice(salePrice.multiply(new BigDecimal("0.70")).setScale(0, java.math.RoundingMode.HALF_UP))
                 .stockQuantity(stockQuantity)
                 .imageUrl(imageUrl)
                 .category(category)

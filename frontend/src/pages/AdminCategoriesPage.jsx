@@ -246,9 +246,9 @@ export default function AdminCategoriesPage({ user }) {
                     const count = productCounts[category.id] || 0;
                     return (
                       <tr key={category.id}>
-                        <td><div className="admin-category-name"><span style={color}><Tags size={17} /></span><div><strong>{category.name}</strong><small>Danh mục #{category.id}</small></div></div></td>
+                        <td><div className="admin-category-name"><span style={color}><Tags size={17} /></span><div><Link className="admin-category-name-link" to={`/admin/products?categoryId=${category.id}`}>{category.name}</Link><small>Danh mục #{category.id}</small></div></div></td>
                         <td><p className="admin-category-description">{category.description || 'Chưa có mô tả cho danh mục này.'}</p></td>
-                        <td><Link className={`admin-category-count ${count ? '' : 'empty'}`} to="/admin/products"><Package size={13} /> {count} sản phẩm</Link></td>
+                        <td><Link className={`admin-category-count ${count ? '' : 'empty'}`} to={`/admin/products?categoryId=${category.id}`}><Package size={13} /> {count} sản phẩm</Link></td>
                         <td>{category.featured ? <span className="admin-category-featured"><Sparkles size={12} /> Nổi bật</span> : <span className="admin-category-normal">Thông thường</span>}</td>
                         <td><div className="admin-category-actions"><button type="button" title="Chỉnh sửa" disabled={busyId === category.id} onClick={() => openEditForm(category)}><Edit3 size={15} /></button><button className="delete-category" type="button" title="Xóa danh mục" disabled={busyId === category.id} onClick={() => handleDelete(category)}><Trash2 size={15} /></button></div></td>
                       </tr>

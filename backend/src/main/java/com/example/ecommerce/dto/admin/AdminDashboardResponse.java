@@ -19,6 +19,12 @@ public class AdminDashboardResponse implements Serializable {
     private long deliveredOrders;
     private long cancelledOrders;
     private BigDecimal totalRevenue;
+    private BigDecimal totalCost;
+    private BigDecimal totalGrossProfit;
+    private BigDecimal totalOrderProfit;
+    private BigDecimal totalOperatingExpense;
+    private BigDecimal totalProfit;
+    private BigDecimal profitMargin;
     private long totalPaidPayments;
     private long totalPendingPayments;
     private long totalProducts;

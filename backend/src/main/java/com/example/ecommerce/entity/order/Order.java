@@ -51,6 +51,21 @@ public class Order {
     @Builder.Default
     private BigDecimal shippingFee = BigDecimal.ZERO;
 
+    @Builder.Default
+    private BigDecimal shippingCost = BigDecimal.ZERO;
+
+    @Builder.Default
+    private BigDecimal packagingCost = BigDecimal.ZERO;
+
+    @Builder.Default
+    private BigDecimal paymentFee = BigDecimal.ZERO;
+
+    @Builder.Default
+    private BigDecimal platformFee = BigDecimal.ZERO;
+
+    @Builder.Default
+    private BigDecimal refundAmount = BigDecimal.ZERO;
+
     private String shippingAddress;
     private String phoneNumber;
     private String trackingCode;
@@ -74,5 +89,33 @@ public class Order {
         return items.stream()
                 .map(OrderItem::getSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public BigDecimal calculateCostOfGoods() {
+        return items.stream()
+                .map(OrderItem::getCostSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public BigDecimal calculateNetRevenue() {
+        return zeroIfNull(totalPrice).subtract(zeroIfNull(refundAmount));
+    }
+
+    public BigDecimal calculateGrossProfit() {
+        BigDecimal productRevenue = calculateNetRevenue().subtract(zeroIfNull(shippingFee));
+        return productRevenue.subtract(calculateCostOfGoods());
+    }
+
+    public BigDecimal calculateOrderProfit() {
+        return calculateNetRevenue()
+                .subtract(calculateCostOfGoods())
+                .subtract(zeroIfNull(shippingCost))
+                .subtract(zeroIfNull(packagingCost))
+                .subtract(zeroIfNull(paymentFee))
+                .subtract(zeroIfNull(platformFee));
+    }
+
+    private BigDecimal zeroIfNull(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 }

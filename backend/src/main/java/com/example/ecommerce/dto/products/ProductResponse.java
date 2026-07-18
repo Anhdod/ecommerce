@@ -1,5 +1,6 @@
 package com.example.ecommerce.dto.products;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -16,6 +17,8 @@ public class ProductResponse {
     private String name;
     private String description;
     private BigDecimal price;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private BigDecimal costPrice;
     private int stockQuantity;
     private String imageUrl;
     private List<String> imageUrls;

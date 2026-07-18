@@ -38,11 +38,12 @@ const formatDate = (value) => value
 
 export default function AdminInventoryPage({ user }) {
   const [products, setProducts] = useState([]);
-  const [lowStock, setLowStock] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [movements, setMovements] = useState([]);
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [stockFilter, setStockFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [threshold, setThreshold] = useState(10);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -65,13 +66,12 @@ export default function AdminInventoryPage({ user }) {
       setLoading(true);
       const query = new URLSearchParams({ page: '0', size: '1000', sort: 'nameAsc' });
       if (appliedSearch) query.set('keyword', appliedSearch);
-      const [productsResult, lowStockResult, movementsResult] = await Promise.all([
+      if (categoryFilter) query.set('categoryId', categoryFilter);
+      const [productsResult, movementsResult] = await Promise.all([
         api(`/api/products?${query.toString()}`),
-        api(`/api/inventory/low-stock?threshold=${threshold}&page=0&size=100`),
         api('/api/inventory/movements?page=0&size=30'),
       ]);
       setProducts(Array.isArray(productsResult.data?.content) ? productsResult.data.content : []);
-      setLowStock(Array.isArray(lowStockResult.data?.content) ? lowStockResult.data.content : []);
       setMovements(Array.isArray(movementsResult.data?.content) ? movementsResult.data.content : []);
     } catch (error) {
       showMessage(error?.message || 'Không tải được dữ liệu kho hàng.', 'error');
@@ -80,11 +80,22 @@ export default function AdminInventoryPage({ user }) {
     }
   };
 
+  const loadCategories = async () => {
+    try {
+      const result = await api('/api/categories');
+      setCategories(Array.isArray(result.data) ? result.data : []);
+    } catch (error) {
+      showMessage(error?.message || 'Không tải được danh mục.', 'error');
+    }
+  };
+
   const stats = useMemo(() => {
     const totalUnits = products.reduce((sum, product) => sum + Number(product.stockQuantity || 0), 0);
     const outOfStock = products.filter((product) => Number(product.stockQuantity || 0) === 0).length;
-    return { totalUnits, outOfStock, lowStock: lowStock.length, healthy: Math.max(0, products.length - lowStock.length) };
-  }, [lowStock, products]);
+    const lowStock = products.filter((product) => Number(product.stockQuantity || 0) > 0 && Number(product.stockQuantity || 0) < threshold).length;
+    const healthy = products.filter((product) => Number(product.stockQuantity || 0) >= threshold).length;
+    return { totalUnits, outOfStock, lowStock, healthy };
+  }, [products, threshold]);
 
   const visibleProducts = useMemo(() => products.filter((product) => {
     const stock = Number(product.stockQuantity || 0);
@@ -156,9 +167,13 @@ export default function AdminInventoryPage({ user }) {
   };
 
   useEffect(() => {
-    if (canManage) loadData();
+    if (canManage) loadCategories();
     return () => window.clearTimeout(messageTimer.current);
-  }, [user, threshold, appliedSearch]);
+  }, [user]);
+
+  useEffect(() => {
+    if (canManage) loadData();
+  }, [user, threshold, appliedSearch, categoryFilter]);
 
   if (!canManage) {
     return <main className="admin-inventory-access"><section><span><Warehouse size={34} /></span><h1>Không có quyền truy cập</h1><p>Chỉ ADMIN hoặc STAFF có thể quản lý kho hàng.</p><Link to={user ? '/' : '/login'}>{user ? 'Về cửa hàng' : 'Đăng nhập'}</Link></section></main>;
@@ -188,6 +203,11 @@ export default function AdminInventoryPage({ user }) {
               <form onSubmit={submitSearch}><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm sản phẩm trong kho..." /><button type="submit">Tìm</button></form>
               <div><label>Ngưỡng thấp<input type="number" min="1" max="999" value={threshold} onChange={(event) => setThreshold(Math.max(1, Number(event.target.value) || 1))} /></label><select value={stockFilter} onChange={(event) => setStockFilter(event.target.value)}><option value="all">Tất cả tồn kho</option><option value="healthy">Ổn định</option><option value="low">Tồn thấp</option><option value="out">Hết hàng</option></select></div>
             </div>
+
+            <nav className="admin-inventory-category-tabs" aria-label="Lọc kho hàng theo danh mục">
+              <button className={!categoryFilter ? 'active' : ''} type="button" onClick={() => setCategoryFilter('')}>Tất cả</button>
+              {categories.map((category) => <button className={categoryFilter === String(category.id) ? 'active' : ''} type="button" onClick={() => setCategoryFilter(String(category.id))} key={category.id}>{category.name}</button>)}
+            </nav>
 
             {loading && !products.length ? <div className="admin-inventory-loading"><span /><span /><span /><span /></div> : visibleProducts.length ? (
               <div className="admin-inventory-table-wrap"><table className="admin-inventory-table"><thead><tr><th>Sản phẩm</th><th>Danh mục</th><th>Tồn hiện tại</th><th>Tình trạng</th><th>Giá trị kho</th><th aria-label="Thao tác" /></tr></thead><tbody>{visibleProducts.map((product) => {

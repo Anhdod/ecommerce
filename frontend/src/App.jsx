@@ -25,6 +25,7 @@ const AdminBannersPage = lazy(() => import('./pages/AdminBannersPage'));
 const AdminReviewsPage = lazy(() => import('./pages/AdminReviewsPage'));
 const AdminOrdersPage = lazy(() => import('./pages/AdminOrdersPage'));
 const AdminPaymentsPage = lazy(() => import('./pages/AdminPaymentsPage'));
+const AdminExpensesPage = lazy(() => import('./pages/AdminExpensesPage'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const OrderDetailPage = lazy(() => import('./pages/OrderDetailPage'));
@@ -123,6 +124,7 @@ function App() {
           <Route path="/admin/reviews" element={<AdminReviewsPage user={user} />} />
           <Route path="/admin/orders" element={<AdminOrdersPage user={user} />} />
           <Route path="/admin/payments" element={<AdminPaymentsPage user={user} />} />
+          <Route path="/admin/expenses" element={<AdminExpensesPage user={user} />} />
           <Route path="/profile" element={<ProfilePage user={user} onProfileUpdate={handleProfileUpdate} />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

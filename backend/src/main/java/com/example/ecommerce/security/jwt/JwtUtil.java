@@ -47,7 +47,7 @@ public class JwtUtil {
     public boolean validateToken(String token, UserDetails userDetails) {
         try {
             String username = getUsernameFromToken(token);
-            return username.equals(userDetails.getUsername());
+            return username.equals(userDetails.getUsername()) && userDetails.isEnabled();
         } catch (Exception e) {
             return false;
         }

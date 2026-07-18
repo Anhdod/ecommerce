@@ -31,9 +31,17 @@ public class OrderItem {
 
     private BigDecimal price;        // Giá tại thời điểm đặt hàng
 
+    @Column(name = "cost_price")
+    private BigDecimal costPrice;    // Giá vốn tại thời điểm đặt hàng
+
     private String selectedColor;
 
     public BigDecimal getSubtotal() {
         return price.multiply(BigDecimal.valueOf(quantity));
+    }
+
+    public BigDecimal getCostSubtotal() {
+        BigDecimal snapshotCost = costPrice == null ? BigDecimal.ZERO : costPrice;
+        return snapshotCost.multiply(BigDecimal.valueOf(quantity));
     }
 }

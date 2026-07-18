@@ -23,6 +23,10 @@ public class ProductRequest {
     @Positive(message = "Giá phải lớn hơn 0")
     private BigDecimal price;
 
+    @NotNull(message = "Giá vốn không được để trống")
+    @PositiveOrZero(message = "Giá vốn không được âm")
+    private BigDecimal costPrice;
+
     @Min(value = 0, message = "Số lượng tồn kho không được âm")
     private int stockQuantity;
 

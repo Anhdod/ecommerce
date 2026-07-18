@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +54,7 @@ public class ProductService {
                 .name(request.getName())
                 .description(request.getDescription())
                 .price(request.getPrice())
+                .costPrice(request.getCostPrice())
                 .stockQuantity(request.getStockQuantity())
                 .imageUrl(request.getImageUrl())
                 .brand(normalizeText(request.getBrand()))
@@ -150,6 +152,7 @@ public class ProductService {
         product.setName(request.getName());
         product.setDescription(request.getDescription());
         product.setPrice(request.getPrice());
+        product.setCostPrice(request.getCostPrice());
         product.setStockQuantity(request.getStockQuantity());
         product.setBrand(normalizeText(request.getBrand()));
         product.setWarrantyMonths(request.getWarrantyMonths());
@@ -251,6 +254,7 @@ public class ProductService {
                 .name(product.getName())
                 .description(product.getDescription())
                 .price(product.getPrice())
+                .costPrice(canViewCostPrice() ? product.getCostPrice() : null)
                 .stockQuantity(product.getStockQuantity())
                 .imageUrl(product.getImageUrl())
                 .imageUrls(product.getImageUrls() == null ? List.of() : new ArrayList<>(product.getImageUrls()))
@@ -268,6 +272,16 @@ public class ProductService {
                 .isLikedByCurrentUser(productLikeService.isLikedByCurrentUser(product.getId()))
                 .salesCount(orderItemRepository.sumSoldQuantityByProductId(product.getId()))
                 .build();
+    }
+
+    private boolean canViewCostPrice() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority) || "ROLE_STAFF".equals(authority));
     }
 
     private String normalizeText(String value) {

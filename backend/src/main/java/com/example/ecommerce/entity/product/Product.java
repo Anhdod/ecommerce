@@ -29,6 +29,9 @@ public class Product {
     @Column(nullable = false)
     private BigDecimal price;
 
+    @Column(name = "cost_price")
+    private BigDecimal costPrice;
+
     private int stockQuantity;
 
     private String imageUrl;

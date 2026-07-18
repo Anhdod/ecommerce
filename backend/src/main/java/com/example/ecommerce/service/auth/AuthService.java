@@ -65,7 +65,8 @@ public class AuthService {
         User user = userRepository.findByUsername(request.getUsername())
                 .orElse(null);
 
-        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (user == null || user.isDeleted() || !user.isEnabled()
+                || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             return AuthResponse.builder()
                     .success(false)
                     .message("Username hoac mat khau khong dung")
@@ -94,7 +95,7 @@ public class AuthService {
         }
 
         User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null || !user.isEnabled()) {
+        if (user == null || user.isDeleted() || !user.isEnabled()) {
             return AuthResponse.builder()
                     .success(false)
                     .message("Tai khoan khong hop le")

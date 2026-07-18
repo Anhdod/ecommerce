@@ -5,7 +5,10 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
+  CreditCard,
   Heart,
+  Minus,
+  Plus,
   Search,
   ShoppingBag,
   SlidersHorizontal,
@@ -19,6 +22,19 @@ import './ProductListPage.css';
 
 const normalize = (value) => String(value || '').toLowerCase();
 
+const colorSwatch = (name) => {
+  const key = normalize(name).trim();
+  const colors = {
+    'đen': '#111827', black: '#111827', 'trắng': '#ffffff', white: '#ffffff',
+    'xanh': '#2563eb', blue: '#2563eb', 'xanh lá': '#16a34a', green: '#16a34a',
+    'đỏ': '#dc2626', red: '#dc2626', 'vàng': '#eab308', yellow: '#eab308',
+    'tím': '#7c3aed', purple: '#7c3aed', 'hồng': '#ec4899', pink: '#ec4899',
+    'xám': '#64748b', gray: '#64748b', grey: '#64748b', 'bạc': '#cbd5e1', silver: '#cbd5e1',
+    gold: '#d4a72c', 'vàng gold': '#d4a72c', cam: '#ea580c', orange: '#ea580c',
+  };
+  return colors[key] || '#cbd5e1';
+};
+
 const categoryCopy = {
   phones: 'Điện thoại mới nhất',
   laptops: 'Laptop cho mọi công việc',
@@ -31,7 +47,7 @@ const fadeUp = {
   visible: { opacity: 1, y: 0 },
 };
 
-function ProductCard({ product, onAddToCart, onToggleWishlist, featured = false }) {
+function ProductCard({ product, onAddToCart, onBuyNow, onToggleWishlist, featured = false }) {
   const rating = Number(product.averageRating || 4.7);
 
   return (
@@ -73,8 +89,11 @@ function ProductCard({ product, onAddToCart, onToggleWishlist, featured = false 
         </div>
         <div className="shop-card-actions">
           <Link className="outline-button" to={`/products/${product.id}`}>Chi tiết</Link>
-          <button onClick={() => onAddToCart(product.id)} type="button" disabled={Number(product.stockQuantity || 0) <= 0}>
-            <ShoppingBag size={17} /> Thêm giỏ hàng
+          <button className="card-cart-button" onClick={() => onAddToCart(product)} type="button" disabled={Number(product.stockQuantity || 0) <= 0}>
+            <ShoppingBag size={16} /> Thêm giỏ
+          </button>
+          <button className="card-buy-button" onClick={() => onBuyNow(product)} type="button" disabled={Number(product.stockQuantity || 0) <= 0}>
+            <CreditCard size={16} /> Mua ngay
           </button>
         </div>
       </div>
@@ -98,6 +117,8 @@ export default function ProductListPage({ user }) {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [quickPurchase, setQuickPurchase] = useState(null);
+  const [quickSubmitting, setQuickSubmitting] = useState(false);
 
   const visibleCategories = useMemo(() => {
     const merged = [...featuredCategories, ...categories].filter(
@@ -171,21 +192,57 @@ export default function ProductListPage({ user }) {
     }
   };
 
-  const handleAddToCart = async (productId) => {
+  const openQuickPurchase = (product, intent = 'cart') => {
+    if (Number(product.stockQuantity || 0) <= 0) return;
+    setQuickPurchase({
+      product,
+      selectedColor: product.colors?.[0] || '',
+      quantity: 1,
+      intent,
+    });
+  };
+
+  const closeQuickPurchase = () => {
+    if (!quickSubmitting) setQuickPurchase(null);
+  };
+
+  const submitQuickPurchase = async (intent) => {
+    if (!quickPurchase || quickSubmitting) return;
     if (!user) {
-      showMessage('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng');
+      setQuickPurchase(null);
+      showMessage('Vui lòng đăng nhập để tiếp tục mua hàng');
+      navigate('/login');
       return;
     }
-    const product = [...products, ...featuredProducts].find((item) => Number(item.id) === Number(productId));
-    if (product?.colors?.length) {
-      navigate(`/products/${productId}`);
+
+    const { product, quantity, selectedColor } = quickPurchase;
+    if (product.colors?.length && !selectedColor) {
+      showMessage('Vui lòng chọn màu sản phẩm');
       return;
     }
+
     try {
-      await api(`/api/cart/add/${productId}?quantity=1`, { method: 'POST' });
-      showMessage('Đã thêm sản phẩm vào giỏ hàng');
+      setQuickSubmitting(true);
+      const params = new URLSearchParams({ quantity: String(quantity) });
+      if (selectedColor) params.set('selectedColor', selectedColor);
+      const result = await api(`/api/cart/add/${product.id}?${params.toString()}`, { method: 'POST' });
+
+      if (intent === 'buy') {
+        const cartItem = (result.data?.items || []).find((item) => (
+          Number(item.productId) === Number(product.id)
+          && normalize(item.selectedColor) === normalize(selectedColor)
+        ));
+        setQuickPurchase(null);
+        navigate(cartItem ? `/checkout?cartItemIds=${cartItem.cartItemId}` : '/cart');
+        return;
+      }
+
+      setQuickPurchase(null);
+      showMessage(`Đã thêm ${quantity} sản phẩm vào giỏ hàng`);
     } catch (error) {
       showMessage(error?.message || 'Không thể thêm sản phẩm vào giỏ hàng');
+    } finally {
+      setQuickSubmitting(false);
     }
   };
 
@@ -235,6 +292,15 @@ export default function ProductListPage({ user }) {
     setSelectedCategory(categoryId ? Number(categoryId) : null);
     fetchProducts(keyword);
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!quickPurchase) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [quickPurchase]);
 
   return (
     <main className="shop-page antialiased selection:bg-blue-100 selection:text-blue-900">
@@ -318,7 +384,8 @@ export default function ProductListPage({ user }) {
               featured
               key={product.id}
               product={product}
-              onAddToCart={handleAddToCart}
+              onAddToCart={(item) => openQuickPurchase(item, 'cart')}
+              onBuyNow={(item) => openQuickPurchase(item, 'buy')}
               onToggleWishlist={handleToggleWishlist}
             />
           ))}
@@ -415,7 +482,8 @@ export default function ProductListPage({ user }) {
                   <ProductCard
                     key={product.id}
                     product={product}
-                    onAddToCart={handleAddToCart}
+                    onAddToCart={(item) => openQuickPurchase(item, 'cart')}
+                    onBuyNow={(item) => openQuickPurchase(item, 'buy')}
                     onToggleWishlist={handleToggleWishlist}
                   />
                 ))
@@ -431,6 +499,86 @@ export default function ProductListPage({ user }) {
           </AnimatePresence>
         </div>
       </section>
+
+      <AnimatePresence>
+        {quickPurchase && (
+          <div className="quick-purchase-layer">
+            <motion.button
+              className="quick-purchase-backdrop"
+              type="button"
+              aria-label="Đóng form chọn sản phẩm"
+              onClick={closeQuickPurchase}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            />
+            <motion.section
+              className="quick-purchase-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="quick-purchase-title"
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+            >
+              <button className="quick-purchase-close" type="button" title="Đóng" onClick={closeQuickPurchase} disabled={quickSubmitting}><X size={19} /></button>
+              <div className="quick-purchase-product">
+                <div className="quick-purchase-image">
+                  {quickPurchase.product.imageUrl
+                    ? <img src={assetUrl(quickPurchase.product.imageUrl)} alt={quickPurchase.product.name} />
+                    : <ShoppingBag size={48} />}
+                </div>
+                <div>
+                  <span>{quickPurchase.intent === 'buy' ? 'Mua ngay' : 'Thêm vào giỏ hàng'}</span>
+                  <h2 id="quick-purchase-title">{quickPurchase.product.name}</h2>
+                  <p>{quickPurchase.product.brand || quickPurchase.product.categoryName || 'Sản phẩm chính hãng'}</p>
+                  <strong>{currency(quickPurchase.product.price)}</strong>
+                  <small>Còn {quickPurchase.product.stockQuantity} sản phẩm</small>
+                </div>
+              </div>
+
+              <div className="quick-purchase-options">
+                {quickPurchase.product.colors?.length > 0 && (
+                  <fieldset>
+                    <legend>Màu sắc <strong>{quickPurchase.selectedColor}</strong></legend>
+                    <div className="quick-color-list">
+                      {quickPurchase.product.colors.map((color) => (
+                        <button
+                          className={quickPurchase.selectedColor === color ? 'selected' : ''}
+                          type="button"
+                          key={color}
+                          onClick={() => setQuickPurchase((current) => ({ ...current, selectedColor: color }))}
+                        >
+                          <i style={{ backgroundColor: colorSwatch(color) }} />
+                          {color}
+                          {quickPurchase.selectedColor === color && <Check size={14} />}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                )}
+
+                <div className="quick-quantity-row">
+                  <div><span>Số lượng</span><small>Tối đa {quickPurchase.product.stockQuantity}</small></div>
+                  <div className="quick-quantity-control">
+                    <button type="button" aria-label="Giảm số lượng" onClick={() => setQuickPurchase((current) => ({ ...current, quantity: Math.max(1, current.quantity - 1) }))} disabled={quickPurchase.quantity <= 1}><Minus size={16} /></button>
+                    <strong>{quickPurchase.quantity}</strong>
+                    <button type="button" aria-label="Tăng số lượng" onClick={() => setQuickPurchase((current) => ({ ...current, quantity: Math.min(Number(current.product.stockQuantity), current.quantity + 1) }))} disabled={quickPurchase.quantity >= Number(quickPurchase.product.stockQuantity)}><Plus size={16} /></button>
+                  </div>
+                </div>
+
+                <div className="quick-purchase-total"><span>Tạm tính</span><strong>{currency(Number(quickPurchase.product.price || 0) * quickPurchase.quantity)}</strong></div>
+              </div>
+
+              <div className="quick-purchase-actions">
+                <button className="quick-add-cart" type="button" onClick={() => submitQuickPurchase('cart')} disabled={quickSubmitting}><ShoppingBag size={17} /> {quickSubmitting ? 'Đang xử lý...' : 'Thêm vào giỏ'}</button>
+                <button className="quick-buy-now" type="button" onClick={() => submitQuickPurchase('buy')} disabled={quickSubmitting}><CreditCard size={17} /> {quickSubmitting ? 'Đang xử lý...' : 'Mua ngay'}</button>
+              </div>
+            </motion.section>
+          </div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {message && (

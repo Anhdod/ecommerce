@@ -2,6 +2,7 @@ package com.example.ecommerce.controller.auth;
 
 import com.example.ecommerce.dto.ApiResponse;
 import com.example.ecommerce.dto.auth.AdminUserUpdateRequest;
+import com.example.ecommerce.dto.auth.AdminUserCreateRequest;
 import com.example.ecommerce.dto.auth.UserProfileResponse;
 import com.example.ecommerce.dto.auth.UserUpdateRequest;
 import com.example.ecommerce.entity.auth.Role;
@@ -41,6 +42,13 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success("Lay danh sach user thanh cong", userService.getAllUsers()));
     }
 
+    @PostMapping("/admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<UserProfileResponse>> createUser(
+            @Valid @RequestBody AdminUserCreateRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Tao user thanh cong", userService.createUser(request)));
+    }
+
     @GetMapping("/admin/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<UserProfileResponse>> getUserById(@PathVariable Long userId) {
@@ -75,9 +83,9 @@ public class UserController {
 
     @DeleteMapping("/admin/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> disableUser(@PathVariable Long userId) {
-        userService.disableUser(userId);
-        return ResponseEntity.ok(ApiResponse.success("Da khoa user thanh cong", null));
+    public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable Long userId) {
+        userService.deleteUser(userId);
+        return ResponseEntity.ok(ApiResponse.success("Da xoa user thanh cong", null));
     }
 }
 

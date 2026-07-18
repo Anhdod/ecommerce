@@ -26,6 +26,7 @@ mvn-test-output.txt
 mvn-test-error.txt
 terminal-check.txt
 curl-products.json
+scripts/api-test-report.json
 
 ### STS ###
 .apt_generated
