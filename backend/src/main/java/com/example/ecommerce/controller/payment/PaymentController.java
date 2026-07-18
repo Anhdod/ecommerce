@@ -60,7 +60,7 @@ public class PaymentController {
             @RequestParam(required = false) PaymentStatus status) {
         java.util.List<PaymentResponse> list;
         if (status == null) {
-            list = paymentService.getPaymentsByStatus(PaymentStatus.PENDING);
+            list = paymentService.getAllPayments();
         } else {
             list = paymentService.getPaymentsByStatus(status);
         }

@@ -1,266 +1,98 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Check, Edit3, Mail, Moon, RefreshCw, Search, ShieldCheck, ShieldOff, Sun, UserCheck, UserCog, UserRound, UsersRound, X } from 'lucide-react';
+import AdminSidebar from '../components/AdminSidebar';
+import Pagination from '../components/Pagination';
 import api from '../api';
+import usePagination from '../hooks/usePagination';
+import './AdminUsersPage.css';
 
 const roles = ['USER', 'STAFF', 'ADMIN'];
-const initialForm = {
-  email: '',
-  fullName: '',
-  phoneNumber: '',
-  address: '',
-  role: 'USER',
-  enabled: true,
-};
+const roleLabels = { USER: 'Khách hàng', STAFF: 'Nhân viên', ADMIN: 'Quản trị viên' };
+const initialForm = { email: '', fullName: '', phoneNumber: '', address: '', role: 'USER', enabled: true };
 
 export default function AdminUsersPage({ user }) {
   const [users, setUsers] = useState([]);
-  const [query, setQuery] = useState('');
-  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(initialForm);
-  const [message, setMessage] = useState('');
+  const [editingUser, setEditingUser] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+  const [message, setMessage] = useState(null);
+  const [theme, setTheme] = useState(() => localStorage.getItem('adminTheme') || 'light');
+  const messageTimer = useRef(null);
+  const canManage = user?.role === 'ADMIN';
 
-  const filteredUsers = useMemo(() => {
-    const value = query.trim().toLowerCase();
-    if (!value) return users;
-    return users.filter((item) =>
-      [item.username, item.email, item.fullName, item.phoneNumber, item.role]
-        .filter(Boolean)
-        .some((field) => String(field).toLowerCase().includes(value))
-    );
-  }, [users, query]);
-
-  const showMessage = (text) => {
-    setMessage(text);
-    window.setTimeout(() => setMessage(''), 5000);
-  };
-
+  const showMessage = (text, type = 'success') => { window.clearTimeout(messageTimer.current); setMessage({ text, type }); messageTimer.current = window.setTimeout(() => setMessage(null), 4000); };
   const loadUsers = async () => {
-    try {
-      const result = await api('/api/users/admin');
-      setUsers(result.data || []);
-    } catch (error) {
-      showMessage(error?.message || 'Cannot load users');
-    }
+    try { setLoading(true); const result = await api('/api/users/admin'); setUsers(Array.isArray(result.data) ? result.data : []); }
+    catch (error) { showMessage(error?.message || 'Không tải được danh sách người dùng.', 'error'); }
+    finally { setLoading(false); }
   };
-
-  const startEdit = (item) => {
-    setEditingId(item.id);
-    setForm({
-      email: item.email || '',
-      fullName: item.fullName || '',
-      phoneNumber: item.phoneNumber || '',
-      address: item.address || '',
-      role: item.role || 'USER',
-      enabled: item.enabled !== false,
+  const stats = useMemo(() => ({ total: users.length, enabled: users.filter((item) => item.enabled).length, staff: users.filter((item) => item.role === 'STAFF').length, admins: users.filter((item) => item.role === 'ADMIN').length }), [users]);
+  const visibleUsers = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    return users.filter((item) => {
+      const matchesSearch = !keyword || [item.username, item.email, item.fullName, item.phoneNumber].filter(Boolean).some((field) => String(field).toLowerCase().includes(keyword));
+      const matchesRole = roleFilter === 'all' || item.role === roleFilter;
+      const matchesStatus = statusFilter === 'all' || (statusFilter === 'enabled' ? item.enabled : !item.enabled);
+      return matchesSearch && matchesRole && matchesStatus;
     });
-  };
+  }, [roleFilter, search, statusFilter, users]);
+  const userPagination = usePagination(visibleUsers, 12, `${search}|${roleFilter}|${statusFilter}`);
 
-  const resetForm = () => {
-    setEditingId(null);
-    setForm(initialForm);
-  };
-
+  const closeDrawer = () => { setEditingUser(null); setForm(initialForm); setDrawerOpen(false); };
+  const openEdit = (item) => { setEditingUser(item); setForm({ email: item.email || '', fullName: item.fullName || '', phoneNumber: item.phoneNumber || '', address: item.address || '', role: item.role || 'USER', enabled: item.enabled !== false }); setDrawerOpen(true); };
   const saveUser = async (event) => {
     event.preventDefault();
-    if (!editingId) return;
-
-    try {
-      await api(`/api/users/admin/${editingId}`, { method: 'PUT', body: form });
-      showMessage('User updated');
-      resetForm();
-      loadUsers();
-    } catch (error) {
-      showMessage(error?.message || 'Cannot update user');
-    }
+    if (!editingUser) return;
+    const isSelf = editingUser.username === user.username;
+    if (isSelf && (form.role !== 'ADMIN' || !form.enabled)) { showMessage('Không thể tự hạ quyền hoặc khóa tài khoản đang đăng nhập.', 'error'); return; }
+    try { setSaving(true); await api(`/api/users/admin/${editingUser.id}`, { method: 'PUT', body: { ...form, email: form.email.trim(), fullName: form.fullName.trim(), phoneNumber: form.phoneNumber.trim(), address: form.address.trim() } }); showMessage('Đã cập nhật người dùng.'); closeDrawer(); await loadUsers(); }
+    catch (error) { showMessage(error?.message || 'Không thể cập nhật người dùng.', 'error'); }
+    finally { setSaving(false); }
   };
-
-  const setRole = async (userId, role) => {
-    try {
-      await api(`/api/users/admin/${userId}/role?role=${role}`, { method: 'PUT' });
-      showMessage('Role updated');
-      loadUsers();
-    } catch (error) {
-      showMessage(error?.message || 'Cannot update role');
-    }
+  const setRole = async (item, role) => {
+    if (item.username === user.username) { showMessage('Không thể tự thay đổi quyền của tài khoản đang đăng nhập.', 'error'); return; }
+    try { setBusyId(item.id); await api(`/api/users/admin/${item.id}/role?role=${role}`, { method: 'PUT' }); showMessage(`Đã chuyển vai trò thành ${roleLabels[role]}.`); await loadUsers(); }
+    catch (error) { showMessage(error?.message || 'Không thể cập nhật vai trò.', 'error'); }
+    finally { setBusyId(null); }
   };
-
-  const setEnabled = async (userId, enabled) => {
-    try {
-      await api(`/api/users/admin/${userId}/enabled?enabled=${enabled}`, { method: 'PUT' });
-      showMessage(enabled ? 'User enabled' : 'User disabled');
-      loadUsers();
-    } catch (error) {
-      showMessage(error?.message || 'Cannot update user status');
-    }
+  const setEnabled = async (item, enabled) => {
+    if (item.username === user.username) { showMessage('Không thể khóa tài khoản đang đăng nhập.', 'error'); return; }
+    if (!enabled && !window.confirm(`Khóa tài khoản "${item.username}"?`)) return;
+    try { setBusyId(item.id); await api(`/api/users/admin/${item.id}/enabled?enabled=${enabled}`, { method: 'PUT' }); showMessage(enabled ? 'Đã mở khóa tài khoản.' : 'Đã khóa tài khoản.'); await loadUsers(); }
+    catch (error) { showMessage(error?.message || 'Không thể cập nhật trạng thái.', 'error'); }
+    finally { setBusyId(null); }
   };
+  const toggleTheme = () => setTheme((current) => { const next = current === 'light' ? 'dark' : 'light'; localStorage.setItem('adminTheme', next); return next; });
+  useEffect(() => { if (canManage) loadUsers(); return () => window.clearTimeout(messageTimer.current); }, [user]);
 
-  const disableUser = async (userId) => {
-    if (!window.confirm('Disable this user?')) return;
-    try {
-      await api(`/api/users/admin/${userId}`, { method: 'DELETE' });
-      showMessage('User disabled');
-      loadUsers();
-    } catch (error) {
-      showMessage(error?.message || 'Cannot disable user');
-    }
-  };
+  if (!canManage) return <main className="admin-users-access"><section><span><UsersRound size={34} /></span><h1>Không có quyền truy cập</h1><p>Chỉ ADMIN có thể quản lý người dùng và phân quyền.</p><Link to={user ? '/admin' : '/login'}>{user ? 'Về Dashboard' : 'Đăng nhập'}</Link></section></main>;
 
-  useEffect(() => {
-    if (user?.role === 'ADMIN') {
-      loadUsers();
-    }
-  }, [user]);
-
-  if (user?.role !== 'ADMIN') {
-    return (
-      <main className="page-shell">
-        <section className="panel">
-          <h2>User Management</h2>
-          <p>Admin access required.</p>
+  return <main className={`admin-users-shell admin-theme-${theme}`}>
+    <AdminSidebar user={user} />
+    <div className="admin-users-content">
+      <header className="admin-users-topbar"><div><span>Quản trị / Hệ thống</span><h1>Người dùng</h1></div><button className="admin-user-icon-button" type="button" onClick={toggleTheme}>{theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}</button></header>
+      <div className="admin-users-inner">
+        <section className="admin-users-heading"><div><h2>Quản lý người dùng</h2><p>Cập nhật hồ sơ, trạng thái tài khoản và quyền truy cập hệ thống.</p></div><button type="button" onClick={loadUsers} disabled={loading}><RefreshCw size={16} className={loading ? 'admin-user-spinning' : ''} /> Làm mới</button></section>
+        <section className="admin-user-stats"><article><span><UsersRound size={18} /></span><div><strong>{stats.total}</strong><small>Tổng tài khoản</small></div></article><article><span className="enabled"><UserCheck size={18} /></span><div><strong>{stats.enabled}</strong><small>Đang hoạt động</small></div></article><article><span className="staff"><UserCog size={18} /></span><div><strong>{stats.staff}</strong><small>Nhân viên</small></div></article><article><span className="admins"><ShieldCheck size={18} /></span><div><strong>{stats.admins}</strong><small>Quản trị viên</small></div></article></section>
+        <section className="admin-users-panel">
+          <div className="admin-users-toolbar"><label><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm tên, username, email hoặc số điện thoại..." /></label><div><select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}><option value="all">Tất cả vai trò</option>{roles.map((role) => <option value={role} key={role}>{roleLabels[role]}</option>)}</select><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">Tất cả trạng thái</option><option value="enabled">Hoạt động</option><option value="disabled">Đã khóa</option></select></div></div>
+          {loading && !users.length ? <div className="admin-users-loading"><span /><span /><span /><span /></div> : visibleUsers.length ? <div className="admin-users-table-wrap"><table className="admin-users-table"><thead><tr><th>Người dùng</th><th>Liên hệ</th><th>Vai trò</th><th>Địa chỉ</th><th>Trạng thái</th><th aria-label="Thao tác" /></tr></thead><tbody>{userPagination.pageItems.map((item) => {
+            const isSelf = item.username === user.username;
+            return <tr key={item.id}><td><div className="admin-user-identity"><span>{(item.fullName || item.username || 'U').charAt(0).toUpperCase()}</span><div><strong>{item.fullName || item.username}</strong><small>@{item.username} · #{item.id}{isSelf ? ' · Bạn' : ''}</small></div></div></td><td><div className="admin-user-contact"><span><Mail size={12} />{item.email}</span><small>{item.phoneNumber || 'Chưa có số điện thoại'}</small></div></td><td><select className={`admin-user-role ${item.role?.toLowerCase()}`} value={item.role || 'USER'} onChange={(event) => setRole(item, event.target.value)} disabled={busyId === item.id || isSelf}>{roles.map((role) => <option value={role} key={role}>{roleLabels[role]}</option>)}</select></td><td><p className="admin-user-address">{item.address || 'Chưa cập nhật địa chỉ'}</p></td><td><span className={`admin-user-status ${item.enabled ? 'enabled' : 'disabled'}`}>{item.enabled ? 'Hoạt động' : 'Đã khóa'}</span></td><td><div className="admin-user-actions"><button type="button" title="Chỉnh sửa" onClick={() => openEdit(item)} disabled={busyId === item.id}><Edit3 size={15} /></button><button className={item.enabled ? 'disable' : 'enable'} type="button" title={item.enabled ? 'Khóa tài khoản' : 'Mở khóa'} onClick={() => setEnabled(item, !item.enabled)} disabled={busyId === item.id || isSelf}>{item.enabled ? <ShieldOff size={15} /> : <ShieldCheck size={15} />}</button></div></td></tr>;
+          })}</tbody></table></div> : <div className="admin-users-empty"><span><UserRound size={28} /></span><h3>Không tìm thấy người dùng</h3><p>Thử thay đổi từ khóa hoặc bộ lọc.</p></div>}
+          <Pagination {...userPagination} onPageChange={userPagination.setPage} label="tài khoản" />
         </section>
-      </main>
-    );
-  }
-
-  return (
-    <main className="page-shell">
-      <section className="panel split wide-split">
-        <aside className="sidebar">
-          <h2>User Management</h2>
-          <div className="stat-card">
-            <strong>{users.length}</strong>
-            <span>Total users</span>
-          </div>
-          <div className="stat-card">
-            <strong>{users.filter((item) => item.enabled !== false).length}</strong>
-            <span>Enabled</span>
-          </div>
-          <div className="stat-card">
-            <strong>{users.filter((item) => item.role === 'ADMIN').length}</strong>
-            <span>Admins</span>
-          </div>
-
-          {editingId && (
-            <form onSubmit={saveUser} className="form-grid user-edit-form">
-              <h3>Edit User</h3>
-              <label>
-                Email
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
-                  required
-                />
-              </label>
-              <label>
-                Full name
-                <input
-                  value={form.fullName}
-                  onChange={(event) => setForm((prev) => ({ ...prev, fullName: event.target.value }))}
-                />
-              </label>
-              <label>
-                Phone
-                <input
-                  value={form.phoneNumber}
-                  onChange={(event) => setForm((prev) => ({ ...prev, phoneNumber: event.target.value }))}
-                />
-              </label>
-              <label>
-                Address
-                <input
-                  value={form.address}
-                  onChange={(event) => setForm((prev) => ({ ...prev, address: event.target.value }))}
-                />
-              </label>
-              <label>
-                Role
-                <select
-                  value={form.role}
-                  onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value }))}
-                >
-                  {roles.map((role) => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={form.enabled}
-                  onChange={(event) => setForm((prev) => ({ ...prev, enabled: event.target.checked }))}
-                />
-                Enabled
-              </label>
-              <button type="submit">Save user</button>
-              <button type="button" className="small" onClick={resetForm}>
-                Cancel
-              </button>
-            </form>
-          )}
-        </aside>
-
-        <div>
-          <div className="toolbar">
-            <div className="search-group">
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search users" />
-              <button className="small" onClick={loadUsers}>
-                Refresh
-              </button>
-            </div>
-          </div>
-
-          <div className="table-list">
-            {filteredUsers.map((item) => (
-              <article className="card compact-card" key={item.id}>
-                <div className="card-header">
-                  <div>
-                    <h3>{item.fullName || item.username}</h3>
-                    <span className="muted">
-                      {item.username} - {item.email}
-                    </span>
-                  </div>
-                  <div className="tag-group">
-                    <span className="tag">{item.role}</span>
-                    <span className={`tag ${item.enabled === false ? 'danger-tag' : 'success-tag'}`}>
-                      {item.enabled === false ? 'Disabled' : 'Enabled'}
-                    </span>
-                  </div>
-                </div>
-                <div className="meta-grid">
-                  <span>ID: {item.id}</span>
-                  <span>Phone: {item.phoneNumber || 'N/A'}</span>
-                  <span>Address: {item.address || 'N/A'}</span>
-                </div>
-                <div className="row-actions">
-                  <button className="small" onClick={() => startEdit(item)}>
-                    Edit
-                  </button>
-                  <select value={item.role || 'USER'} onChange={(event) => setRole(item.id, event.target.value)}>
-                    {roles.map((role) => (
-                      <option key={role} value={role}>
-                        {role}
-                      </option>
-                    ))}
-                  </select>
-                  {item.enabled === false ? (
-                    <button className="small" onClick={() => setEnabled(item.id, true)}>
-                      Enable
-                    </button>
-                  ) : (
-                    <button className="small danger" onClick={() => disableUser(item.id)}>
-                      Disable
-                    </button>
-                  )}
-                </div>
-              </article>
-            ))}
-            {!filteredUsers.length && <p>No users found.</p>}
-          </div>
-        </div>
-        {message && <div className="message full-row">{message}</div>}
-      </section>
-    </main>
-  );
+      </div>
+    </div>
+    <AnimatePresence>{drawerOpen && editingUser && <><motion.button className="admin-user-drawer-overlay" type="button" onClick={closeDrawer} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} /><motion.aside className="admin-user-drawer" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ duration: .22 }}><header><div><span>Tài khoản #{editingUser.id}</span><h2>Chỉnh sửa người dùng</h2></div><button type="button" onClick={closeDrawer}><X size={18} /></button></header><section className="admin-user-drawer-summary"><span>{(editingUser.fullName || editingUser.username).charAt(0).toUpperCase()}</span><div><strong>{editingUser.fullName || editingUser.username}</strong><small>@{editingUser.username}</small></div></section><form onSubmit={saveUser}><label>Email<input type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} required /></label><label>Họ và tên<input value={form.fullName} onChange={(event) => setForm((current) => ({ ...current, fullName: event.target.value }))} maxLength={100} /></label><div className="admin-user-form-row"><label>Số điện thoại<input value={form.phoneNumber} onChange={(event) => setForm((current) => ({ ...current, phoneNumber: event.target.value }))} maxLength={20} /></label><label>Vai trò<select value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))} disabled={editingUser.username === user.username}>{roles.map((role) => <option value={role} key={role}>{roleLabels[role]}</option>)}</select></label></div><label>Địa chỉ<textarea value={form.address} onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))} maxLength={255} /></label><label className="admin-user-enabled-control"><input type="checkbox" checked={form.enabled} onChange={(event) => setForm((current) => ({ ...current, enabled: event.target.checked }))} disabled={editingUser.username === user.username} /><span><strong>Tài khoản hoạt động</strong><small>Người dùng có thể đăng nhập và sử dụng hệ thống.</small></span></label>{editingUser.username === user.username && <p className="admin-user-self-note"><ShieldCheck size={14} /> Không thể tự đổi quyền hoặc khóa tài khoản đang đăng nhập.</p>}<footer><button type="button" onClick={closeDrawer}>Hủy</button><button type="submit" disabled={saving}><Check size={16} /> {saving ? 'Đang lưu...' : 'Lưu thay đổi'}</button></footer></form></motion.aside></>}</AnimatePresence>
+    <AnimatePresence>{message && <motion.div className={`admin-users-toast ${message.type}`} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 14 }}>{message.type === 'success' ? <Check size={17} /> : <X size={17} />} {message.text}</motion.div>}</AnimatePresence>
+  </main>;
 }

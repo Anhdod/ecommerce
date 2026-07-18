@@ -14,8 +14,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 
 @Service
 public class ProductService {
@@ -35,6 +39,7 @@ public class ProductService {
     @Autowired
     private OrderItemRepository orderItemRepository;
 
+    @Transactional
     public ProductResponse createProduct(ProductRequest request) {
         Long categoryId = request.getCategoryId();
         if (categoryId == null) {
@@ -50,6 +55,9 @@ public class ProductService {
                 .price(request.getPrice())
                 .stockQuantity(request.getStockQuantity())
                 .imageUrl(request.getImageUrl())
+                .brand(normalizeText(request.getBrand()))
+                .warrantyMonths(request.getWarrantyMonths())
+                .colors(normalizeColors(request.getColors()))
                 .category(category)
                 .active(true)
                 .featured(request.getFeatured() != null && request.getFeatured())
@@ -59,6 +67,7 @@ public class ProductService {
         return convertToResponse(savedProduct);
     }
 
+    @Transactional(readOnly = true)
     public Page<ProductResponse> getAllProducts(String keyword, Long categoryId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Product> products;
@@ -74,6 +83,7 @@ public class ProductService {
         return products.map(this::convertToResponse);
     }
 
+    @Transactional(readOnly = true)
     public Page<ProductResponse> getAllProducts(
             String keyword,
             Long categoryId,
@@ -112,18 +122,21 @@ public class ProductService {
                 .map(this::convertToResponse);
     }
 
+    @Transactional(readOnly = true)
     public ProductResponse getProductById(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Khong tim thay san pham"));
         return convertToResponse(product);
     }
 
+    @Transactional(readOnly = true)
     public Page<ProductResponse> getFeaturedProducts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return productRepository.findByActiveTrueAndFeaturedTrue(pageable)
                 .map(this::convertToResponse);
     }
 
+    @Transactional
     public ProductResponse updateProduct(Long id, ProductRequest request) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Khong tim thay san pham voi id: " + id));
@@ -138,6 +151,15 @@ public class ProductService {
         product.setDescription(request.getDescription());
         product.setPrice(request.getPrice());
         product.setStockQuantity(request.getStockQuantity());
+        product.setBrand(normalizeText(request.getBrand()));
+        product.setWarrantyMonths(request.getWarrantyMonths());
+        List<String> normalizedColors = normalizeColors(request.getColors());
+        if (product.getColors() == null) {
+            product.setColors(normalizedColors);
+        } else {
+            product.getColors().clear();
+            product.getColors().addAll(normalizedColors);
+        }
         if (request.getImageUrl() != null) {
             product.setImageUrl(request.getImageUrl());
         }
@@ -149,6 +171,7 @@ public class ProductService {
         return convertToResponse(updatedProduct);
     }
 
+    @Transactional
     public void deleteProduct(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Khong tim thay san pham voi id: " + id));
@@ -156,6 +179,7 @@ public class ProductService {
         productRepository.save(product);
     }
 
+    @Transactional
     public void updateProductImage(Long productId, String imageUrl) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Khong tim thay san pham"));
@@ -163,6 +187,35 @@ public class ProductService {
         productRepository.save(product);
     }
 
+    @Transactional
+    public void addProductImages(Long productId, List<String> imageUrls) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Khong tim thay san pham"));
+        if (product.getImageUrls() == null) {
+            product.setImageUrls(new ArrayList<>());
+        }
+        imageUrls.stream()
+                .filter(url -> url != null && !url.isBlank())
+                .filter(url -> !product.getImageUrls().contains(url))
+                .forEach(product.getImageUrls()::add);
+        productRepository.save(product);
+    }
+
+    @Transactional
+    public boolean removeProductImage(Long productId, String imageUrl) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Khong tim thay san pham"));
+        if (product.getImageUrls() == null) {
+            return false;
+        }
+        boolean removed = product.getImageUrls().remove(imageUrl);
+        if (removed) {
+            productRepository.save(product);
+        }
+        return removed;
+    }
+
+    @Transactional
     public boolean deleteProductImage(Long productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Khong tim thay san pham"));
@@ -200,6 +253,10 @@ public class ProductService {
                 .price(product.getPrice())
                 .stockQuantity(product.getStockQuantity())
                 .imageUrl(product.getImageUrl())
+                .imageUrls(product.getImageUrls() == null ? List.of() : new ArrayList<>(product.getImageUrls()))
+                .brand(product.getBrand())
+                .warrantyMonths(product.getWarrantyMonths())
+                .colors(product.getColors() == null ? List.of() : new ArrayList<>(product.getColors()))
                 .categoryId(product.getCategory().getId())
                 .categoryName(product.getCategory().getName())
                 .active(product.isActive())
@@ -211,5 +268,21 @@ public class ProductService {
                 .isLikedByCurrentUser(productLikeService.isLikedByCurrentUser(product.getId()))
                 .salesCount(orderItemRepository.sumSoldQuantityByProductId(product.getId()))
                 .build();
+    }
+
+    private String normalizeText(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private List<String> normalizeColors(List<String> colors) {
+        if (colors == null) {
+            return new ArrayList<>();
+        }
+        LinkedHashSet<String> normalized = new LinkedHashSet<>();
+        colors.stream()
+                .filter(color -> color != null && !color.isBlank())
+                .map(String::trim)
+                .forEach(normalized::add);
+        return new ArrayList<>(normalized);
     }
 }

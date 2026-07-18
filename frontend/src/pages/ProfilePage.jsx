@@ -1,106 +1,123 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Bell, Check, ChevronRight, CreditCard, Heart, Mail, MapPin, Package, Phone, Save, ShieldCheck, UserRound } from 'lucide-react';
 import api from '../api';
+import './ProfilePage.css';
+
+const accountLinks = [
+  { to: '/orders', label: 'Đơn hàng', description: 'Theo dõi lịch sử mua sắm', icon: Package },
+  { to: '/payments', label: 'Thanh toán', description: 'Xem lịch sử giao dịch', icon: CreditCard },
+  { to: '/addresses', label: 'Địa chỉ', description: 'Quản lý nơi nhận hàng', icon: MapPin },
+  { to: '/wishlist', label: 'Yêu thích', description: 'Sản phẩm đã lưu', icon: Heart },
+  { to: '/notifications', label: 'Thông báo', description: 'Cập nhật mới nhất', icon: Bell },
+];
 
 export default function ProfilePage({ user, onProfileUpdate }) {
   const [profile, setProfile] = useState(null);
   const [form, setForm] = useState({ fullName: '', phoneNumber: '', address: '' });
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const initials = useMemo(() => {
+    const source = profile?.fullName || profile?.username || 'U';
+    return source.split(/\s+/).filter(Boolean).slice(-2).map((part) => part[0]).join('').toUpperCase();
+  }, [profile]);
 
   const showMessage = (text) => {
     setMessage(text);
-    window.setTimeout(() => setMessage(''), 5000);
+    window.setTimeout(() => setMessage(''), 4000);
   };
 
   const loadProfile = async () => {
     try {
+      setLoading(true);
       const result = await api('/api/users/me');
       setProfile(result.data);
-      setForm({
-        fullName: result.data.fullName || '',
-        phoneNumber: result.data.phoneNumber || '',
-        address: result.data.address || '',
-      });
+      setForm({ fullName: result.data.fullName || '', phoneNumber: result.data.phoneNumber || '', address: result.data.address || '' });
     } catch (error) {
       showMessage(error?.message || 'Không tải được thông tin người dùng');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleChange = (field) => (event) => {
-    setForm((prev) => ({ ...prev, [field]: event.target.value }));
-  };
+  const handleChange = (field) => (event) => setForm((prev) => ({ ...prev, [field]: event.target.value }));
 
   const handleUpdate = async (event) => {
     event.preventDefault();
     try {
-      const result = await api('/api/users/me', {
-        method: 'PUT',
-        body: form,
-      });
+      setSaving(true);
+      const result = await api('/api/users/me', { method: 'PUT', body: form });
       setProfile(result.data);
       onProfileUpdate?.(result.data);
-      showMessage('Cập nhật hồ sơ thành công');
+      showMessage('Đã cập nhật hồ sơ');
     } catch (error) {
       showMessage(error?.message || 'Không cập nhật được hồ sơ');
+    } finally {
+      setSaving(false);
     }
   };
 
   useEffect(() => {
-    if (user) {
-      loadProfile();
-    }
+    if (user) loadProfile();
   }, [user]);
 
   if (!user) {
     return (
-      <main className="page-shell">
-        <section className="panel">
-          <h2>Profile</h2>
-          <p>Đăng nhập để xem thông tin cá nhân.</p>
+      <main className="profile-page">
+        <section className="profile-auth-state">
+          <span><UserRound size={36} /></span><h1>Hồ sơ cá nhân</h1><p>Đăng nhập để quản lý thông tin tài khoản.</p><Link to="/login">Đăng nhập</Link>
         </section>
       </main>
     );
   }
 
+  if (loading && !profile) {
+    return <main className="profile-page"><div className="profile-skeleton"><span /><span /></div></main>;
+  }
+
   return (
-    <main className="page-shell">
-      <section className="panel profile-panel">
-        <h2>Profile</h2>
-        {profile ? (
-          <div className="split">
-            <div className="sidebar">
-              <p>
-                <strong>Username:</strong> {profile.username}
-              </p>
-              <p>
-                <strong>Email:</strong> {profile.email}
-              </p>
-              <p>
-                <strong>Role:</strong> {profile.role}
-              </p>
-            </div>
-            <div>
-              <form onSubmit={handleUpdate} className="form-grid">
-                <label>
-                  Full name
-                  <input value={form.fullName} onChange={handleChange('fullName')} />
-                </label>
-                <label>
-                  Phone number
-                  <input value={form.phoneNumber} onChange={handleChange('phoneNumber')} />
-                </label>
-                <label>
-                  Address
-                  <input value={form.address} onChange={handleChange('address')} />
-                </label>
-                <button type="submit">Update profile</button>
-              </form>
-            </div>
-          </div>
-        ) : (
-          <p>Loading profile...</p>
-        )}
-        {message && <div className="message">{message}</div>}
-      </section>
+    <main className="profile-page antialiased">
+      <div className="profile-container">
+        <header className="profile-heading">
+          <div><span>Tài khoản</span><h1>Hồ sơ cá nhân</h1><p>Quản lý thông tin và các hoạt động mua sắm.</p></div>
+          <span className={`account-status ${profile?.enabled ? 'enabled' : 'disabled'}`}><ShieldCheck size={15} /> {profile?.enabled ? 'Tài khoản hoạt động' : 'Tài khoản bị khóa'}</span>
+        </header>
+
+        <div className="profile-layout">
+          <aside className="profile-sidebar">
+            <section className="profile-identity">
+              <span className="profile-avatar">{initials}</span>
+              <h2>{profile?.fullName || profile?.username}</h2>
+              <p>@{profile?.username}</p>
+              <span className="profile-role">{profile?.role}</span>
+              <div className="identity-contact"><span><Mail size={15} /> {profile?.email}</span>{profile?.phoneNumber && <span><Phone size={15} /> {profile.phoneNumber}</span>}</div>
+            </section>
+            <nav className="profile-navigation" aria-label="Quản lý tài khoản">
+              {accountLinks.map((item) => {
+                const Icon = item.icon;
+                return <Link to={item.to} key={item.to}><span><Icon size={18} /></span><div><strong>{item.label}</strong><small>{item.description}</small></div><ChevronRight size={16} /></Link>;
+              })}
+            </nav>
+          </aside>
+
+          <motion.section className="profile-form-section" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="profile-section-heading"><div><h2>Thông tin cá nhân</h2><p>Cập nhật thông tin được sử dụng khi đặt hàng.</p></div><UserRound size={20} /></div>
+            <form className="profile-form" onSubmit={handleUpdate}>
+              <label>Tên đăng nhập<input value={profile?.username || ''} disabled /><small>Tên đăng nhập không thể thay đổi.</small></label>
+              <label>Email<input type="email" value={profile?.email || ''} disabled /><small>Email liên kết với tài khoản.</small></label>
+              <label>Họ và tên<input value={form.fullName} onChange={handleChange('fullName')} placeholder="Nhập họ và tên" /></label>
+              <label>Số điện thoại<input value={form.phoneNumber} onChange={handleChange('phoneNumber')} placeholder="Nhập số điện thoại" /></label>
+              <label className="profile-address-field">Địa chỉ liên hệ<textarea value={form.address} onChange={handleChange('address')} placeholder="Nhập địa chỉ liên hệ" /></label>
+              <div className="profile-form-footer"><span><ShieldCheck size={15} /> Thông tin của bạn được bảo mật.</span><button type="submit" disabled={saving}><Save size={16} /> {saving ? 'Đang lưu...' : 'Lưu thay đổi'}</button></div>
+            </form>
+          </motion.section>
+        </div>
+      </div>
+
+      <AnimatePresence>{message && <motion.div className="profile-toast" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}><Check size={18} /> {message}</motion.div>}</AnimatePresence>
     </main>
   );
 }

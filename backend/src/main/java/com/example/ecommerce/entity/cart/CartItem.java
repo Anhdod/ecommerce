@@ -31,6 +31,8 @@ public class CartItem {
 
     private BigDecimal price;   // Giá tại thời điểm thêm vào giỏ
 
+    private String selectedColor;
+
     // Tính thành tiền của item
     public BigDecimal getSubtotal() {
         return price.multiply(BigDecimal.valueOf(quantity));

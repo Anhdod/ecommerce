@@ -28,81 +28,6 @@ textarea {
   font: inherit;
 }
 
-.app-header,
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.8rem 1.5rem;
-  background: #ffffff;
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  gap: 1rem;
-}
-
-.brand {
-  font-size: 1.05rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.topnav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.2rem;
-  align-items: center;
-}
-
-.topnav a {
-  text-decoration: none;
-  color: var(--text);
-  border: 1px solid transparent;
-  padding: 0.48rem 0.7rem;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  font-size: 0.93rem;
-}
-
-.topnav a.active,
-.topnav a:hover {
-  background: #f3f6fb;
-  border-color: var(--soft-border);
-}
-
-.nav-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.4rem;
-  height: 1.4rem;
-  margin-left: 0.35rem;
-  padding: 0 0.35rem;
-  border-radius: 999px;
-  background: var(--primary);
-  color: #fff;
-  font-size: 0.75rem;
-  line-height: 1;
-}
-
-.login-link {
-  color: var(--primary);
-}
-
-.user-panel {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  white-space: nowrap;
-}
-
-main {
-  max-width: 1200px;
-  margin: 1rem auto;
-  padding: 0 1.5rem 2rem;
-}
-
 .page-shell {
   max-width: 1200px;
   margin: 1rem auto;
@@ -826,15 +751,6 @@ button.small.danger {
     grid-template-columns: 1fr;
   }
 
-  header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .topnav {
-    width: 100%;
-  }
-
   .hero-banner {
     grid-template-columns: 1fr;
   }
@@ -861,23 +777,25 @@ button.small.danger {
   }
 }
 
-/* Shared storefront theme */
-:root {
-  --shop-bg: #ffffff;
-  --shop-text: #071225;
-  --shop-muted: #5f6b85;
-  --shop-blue: #6d28d9;
-  --shop-blue-dark: #5b21b6;
-  --shop-border: #e4ddf4;
-  --shop-soft: #f8f5ff;
-  --shop-shadow: 0 14px 32px rgba(76, 29, 149, 0.08);
+@tailwind components;
+@tailwind utilities;
+
+.route-loading {
+  display: grid;
+  min-height: calc(100vh - 72px);
+  place-items: center;
+  background: #f8fafc;
 }
 
-body {
-  background:
-    radial-gradient(circle at 12% 0%, rgba(124, 58, 237, 0.08), transparent 30%),
-    radial-gradient(circle at 78% 12%, rgba(216, 180, 254, 0.12), transparent 26%),
-    linear-gradient(180deg, #ffffff 0%, #fbf9ff 55%, #ffffff 100%);
-  color: var(--shop-text);
+.route-loading span {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #dbeafe;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: route-loading-spin 0.7s linear infinite;
 }
 
+@keyframes route-loading-spin {
+  to { transform: rotate(360deg); }
+}

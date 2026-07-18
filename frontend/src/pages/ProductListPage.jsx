@@ -1,34 +1,90 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  ArrowRight,
+  Check,
+  ChevronDown,
+  Heart,
+  Search,
+  ShoppingBag,
+  SlidersHorizontal,
+  Sparkles,
+  Star,
+  X,
+} from 'lucide-react';
 import api, { assetUrl } from '../api';
+import { formatVnd as currency } from '../utils/currency';
 import './ProductListPage.css';
-
-const currency = (value) => {
-  const number = Number(value || 0);
-  const displayValue = number > 0 && number < 10000 ? number * 25000 : number;
-  return `${displayValue.toLocaleString('vi-VN')} VND`;
-};
-
-const categoryVisuals = {
-  phones: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&w=900&q=80',
-  laptops: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=900&q=80',
-  audio: 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&w=900&q=80',
-};
-
-const categoryCopy = {
-  phones: 'Smartphones',
-  laptops: 'Latest Laptops',
-  audio: 'Audio Accessories',
-};
 
 const normalize = (value) => String(value || '').toLowerCase();
 
-const categoryImage = (category) => categoryVisuals[normalize(category?.name)] || categoryVisuals.audio;
+const categoryCopy = {
+  phones: 'Điện thoại mới nhất',
+  laptops: 'Laptop cho mọi công việc',
+  audio: 'Âm thanh chất lượng cao',
+  accessories: 'Phụ kiện thiết yếu',
+};
 
-const categoryTitle = (category) => categoryCopy[normalize(category?.name)] || category?.name || 'New arrivals';
+const fadeUp = {
+  hidden: { opacity: 0, y: 18 },
+  visible: { opacity: 1, y: 0 },
+};
+
+function ProductCard({ product, onAddToCart, onToggleWishlist, featured = false }) {
+  const rating = Number(product.averageRating || 4.7);
+
+  return (
+    <motion.article
+      className={`shop-card ${featured ? 'featured-card' : ''}`}
+      variants={fadeUp}
+      whileHover={{ y: -4 }}
+      transition={{ duration: 0.2 }}
+    >
+      <div className="shop-card-media">
+        {featured && <span className="featured-label"><Sparkles size={13} /> Nổi bật</span>}
+        <button
+          className="favorite-button"
+          aria-label={`Thêm ${product.name} vào yêu thích`}
+          title="Thêm vào yêu thích"
+          type="button"
+          onClick={() => onToggleWishlist(product.id)}
+        >
+          <Heart size={18} />
+        </button>
+        <Link to={`/products/${product.id}`} tabIndex={-1} aria-hidden="true">
+          {product.imageUrl ? (
+            <img className="shop-card-image" src={assetUrl(product.imageUrl)} alt={product.name} />
+          ) : (
+            <div className="image-placeholder"><ShoppingBag size={42} /></div>
+          )}
+        </Link>
+      </div>
+      <div className="shop-card-body">
+        <div className="product-meta-row">
+          <span>{product.categoryName || 'Sản phẩm'}</span>
+          <span className="rating-line"><Star size={14} fill="currentColor" /> {rating.toFixed(1)}</span>
+        </div>
+        <Link className="product-name" to={`/products/${product.id}`}>{product.name}</Link>
+        <p className="product-description">{product.description || 'Sản phẩm chính hãng, giao hàng nhanh chóng.'}</p>
+        <div className="product-price-row">
+          <strong>{currency(product.price)}</strong>
+          <small>{Number(product.stockQuantity || 0) > 0 ? `Còn ${product.stockQuantity}` : 'Hết hàng'}</small>
+        </div>
+        <div className="shop-card-actions">
+          <Link className="outline-button" to={`/products/${product.id}`}>Chi tiết</Link>
+          <button onClick={() => onAddToCart(product.id)} type="button" disabled={Number(product.stockQuantity || 0) <= 0}>
+            <ShoppingBag size={17} /> Thêm giỏ hàng
+          </button>
+        </div>
+      </div>
+    </motion.article>
+  );
+}
 
 export default function ProductListPage({ user }) {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
   const [featuredCategories, setFeaturedCategories] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
@@ -41,29 +97,39 @@ export default function ProductListPage({ user }) {
   const [sort, setSort] = useState('latest');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const visibleFeaturedCategories = useMemo(() => {
-    const source = featuredCategories.length ? featuredCategories : categories;
-    return source.slice(0, 3);
+  const visibleCategories = useMemo(() => {
+    const merged = [...featuredCategories, ...categories].filter(
+      (category, index, source) => source.findIndex((item) => item.id === category.id) === index
+    );
+    return merged.slice(0, 5);
   }, [categories, featuredCategories]);
 
   const filteredProducts = useMemo(() => {
     const filtered = products.filter((product) => {
-      if (selectedCategory && product.categoryId !== selectedCategory) return false;
+      if (selectedCategory && Number(product.categoryId) !== Number(selectedCategory)) return false;
       if (minRating && Number(product.averageRating || 0) < Number(minRating)) return false;
       return true;
     });
 
     return [...filtered].sort((a, b) => {
+      if (sort === 'priceAsc') return Number(a.price || 0) - Number(b.price || 0);
+      if (sort === 'priceDesc') return Number(b.price || 0) - Number(a.price || 0);
       if (sort === 'ratingDesc') return Number(b.averageRating || 0) - Number(a.averageRating || 0);
       if (sort === 'soldDesc') return Number(b.salesCount || 0) - Number(a.salesCount || 0);
-      return 0;
+      if (sort === 'nameAsc') return String(a.name).localeCompare(String(b.name));
+      if (sort === 'nameDesc') return String(b.name).localeCompare(String(a.name));
+      return Number(b.id || 0) - Number(a.id || 0);
     });
   }, [products, selectedCategory, minRating, sort]);
 
+  const featuredItems = (featuredProducts.length ? featuredProducts : products).slice(0, 4);
+  const heroProduct = featuredItems[0] || products[0];
+
   const showMessage = (text) => {
     setMessage(text);
-    window.setTimeout(() => setMessage(''), 5000);
+    window.setTimeout(() => setMessage(''), 4000);
   };
 
   const fetchCategories = async () => {
@@ -71,7 +137,7 @@ export default function ProductListPage({ user }) {
       const result = await api('/api/categories');
       setCategories(result.data || []);
     } catch (error) {
-      showMessage(error?.message || 'Khong tai duoc danh muc');
+      showMessage(error?.message || 'Không tải được danh mục');
     }
   };
 
@@ -92,18 +158,14 @@ export default function ProductListPage({ user }) {
   const fetchProducts = async (keyword = search) => {
     setLoading(true);
     try {
-      const query = new URLSearchParams();
+      const query = new URLSearchParams({ size: '100' });
       if (keyword) query.set('keyword', keyword);
-      if (selectedCategory) query.set('categoryId', selectedCategory);
       if (minPrice) query.set('minPrice', minPrice);
       if (maxPrice) query.set('maxPrice', maxPrice);
-      if (minRating) query.set('minRating', minRating);
-      query.set('sort', sort);
-      query.set('size', '100');
       const result = await api(`/api/products?${query.toString()}`);
       setProducts(result.data?.content || []);
     } catch (error) {
-      showMessage(error?.message || 'Khong tai duoc san pham');
+      showMessage(error?.message || 'Không tải được sản phẩm');
     } finally {
       setLoading(false);
     }
@@ -111,15 +173,38 @@ export default function ProductListPage({ user }) {
 
   const handleAddToCart = async (productId) => {
     if (!user) {
-      showMessage('Dang nhap de them san pham vao gio hang');
+      showMessage('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng');
+      return;
+    }
+    const product = [...products, ...featuredProducts].find((item) => Number(item.id) === Number(productId));
+    if (product?.colors?.length) {
+      navigate(`/products/${productId}`);
       return;
     }
     try {
       await api(`/api/cart/add/${productId}?quantity=1`, { method: 'POST' });
-      showMessage('Da them vao gio hang');
+      showMessage('Đã thêm sản phẩm vào giỏ hàng');
     } catch (error) {
-      showMessage(error?.message || 'Khong them duoc san pham vao gio hang');
+      showMessage(error?.message || 'Không thể thêm sản phẩm vào giỏ hàng');
     }
+  };
+
+  const handleToggleWishlist = async (productId) => {
+    if (!user) {
+      showMessage('Vui lòng đăng nhập để lưu sản phẩm yêu thích');
+      return;
+    }
+    try {
+      await api(`/api/products/${productId}/like`, { method: 'POST' });
+      showMessage('Đã cập nhật danh sách yêu thích');
+    } catch (error) {
+      showMessage(error?.message || 'Không thể cập nhật yêu thích');
+    }
+  };
+
+  const chooseCategory = (categoryId) => {
+    setSelectedCategory(categoryId);
+    document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const resetFilters = () => {
@@ -135,6 +220,7 @@ export default function ProductListPage({ user }) {
   const submitSearch = (event) => {
     event.preventDefault();
     fetchProducts();
+    setFiltersOpen(false);
   };
 
   useEffect(() => {
@@ -144,173 +230,216 @@ export default function ProductListPage({ user }) {
 
   useEffect(() => {
     const keyword = searchParams.get('keyword') || '';
+    const categoryId = searchParams.get('categoryId');
     setSearch(keyword);
+    setSelectedCategory(categoryId ? Number(categoryId) : null);
     fetchProducts(keyword);
   }, [searchParams]);
 
-  const quickProducts = (products.length ? products : featuredProducts).slice(0, 4);
-  const featuredItems = (featuredProducts.length ? featuredProducts : products).slice(0, 4);
-
   return (
-    <main className="shop-page">
-      <section className="category-hero-grid" id="categories">
-        {visibleFeaturedCategories.map((category) => (
-          <button
-            className={`category-hero-card ${selectedCategory === category.id ? 'active' : ''}`}
-            key={category.id}
-            onClick={() => setSelectedCategory(category.id)}
-            type="button"
-          >
-            <span>
-              <small>{category.description || 'New collection'}</small>
-              <strong>{categoryTitle(category)}</strong>
-            </span>
-            <img src={categoryImage(category)} alt={category.name} />
-          </button>
-        ))}
-      </section>
-
-      <section className="quick-product-row">
-        {quickProducts.map((product) => (
-          <Link className="quick-product" to={`/products/${product.id}`} key={product.id}>
-            <button aria-label="Add to wishlist" type="button" />
-            <img src={assetUrl(product.imageUrl)} alt={product.name} />
-            <strong>{product.name}</strong>
-          </Link>
-        ))}
-      </section>
-
-      <section className="catalog-layout" id="shop">
-        <aside className="catalog-sidebar">
-          <h3>All Categories</h3>
-          <button className={!selectedCategory ? 'active' : ''} onClick={() => setSelectedCategory(null)} type="button">
-            All
-          </button>
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              className={selectedCategory === category.id ? 'active' : ''}
-              onClick={() => setSelectedCategory(category.id)}
-              type="button"
-            >
-              {category.name}
-            </button>
-          ))}
-
-          <div className="sidebar-divider" />
-          <h3>Price range</h3>
-          <div className="price-pair">
-            <input type="number" min="0" placeholder="Min" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} />
-            <input type="number" min="0" placeholder="Max" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} />
+    <main className="shop-page antialiased selection:bg-blue-100 selection:text-blue-900">
+      <motion.section className="shop-hero" initial="hidden" animate="visible" variants={fadeUp}>
+        <div className="hero-copy">
+          <span className="hero-eyebrow"><Sparkles size={15} /> Bộ sưu tập mới</span>
+          <h1>Công nghệ tinh tế cho cuộc sống hiện đại.</h1>
+          <p>Khám phá thiết bị chính hãng được tuyển chọn, trải nghiệm mua sắm nhanh và dịch vụ bạn có thể tin cậy.</p>
+          <div className="hero-actions">
+            <a className="primary-cta" href="#shop">Mua sắm ngay <ArrowRight size={18} /></a>
+            {heroProduct && <Link className="secondary-cta" to={`/products/${heroProduct.id}`}>Xem sản phẩm nổi bật</Link>}
           </div>
+          <div className="hero-benefits" aria-label="Store benefits">
+            <span><Check size={15} /> Chính hãng</span>
+            <span><Check size={15} /> Giao nhanh</span>
+            <span><Check size={15} /> Đổi trả dễ dàng</span>
+          </div>
+        </div>
+        <div className="hero-visual">
+          <div className="hero-product-info">
+            <span>Sản phẩm nổi bật</span>
+            <strong>{heroProduct?.name || 'Khám phá bộ sưu tập mới'}</strong>
+            {heroProduct && <small>{currency(heroProduct.price)}</small>}
+          </div>
+          {heroProduct?.imageUrl ? (
+            <motion.img
+              src={assetUrl(heroProduct.imageUrl)}
+              alt={heroProduct.name}
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.15, duration: 0.5 }}
+            />
+          ) : (
+            <ShoppingBag className="hero-placeholder" size={120} />
+          )}
+        </div>
+      </motion.section>
 
-          <div className="sidebar-divider" />
-          <h3>Rating</h3>
-          {[4, 3, 2, 1].map((rating) => (
-            <button
-              className={`rating-filter ${Number(minRating) === rating ? 'active' : ''}`}
-              key={rating}
-              onClick={() => setMinRating(String(rating))}
-              type="button"
-            >
-              {'*'.repeat(rating)}
-              {'-'.repeat(5 - rating)}
-              <span>& up</span>
-            </button>
+      <section className="category-section" id="categories">
+        <div className="section-title-row">
+          <div>
+            <span className="section-kicker">Danh mục</span>
+            <h2>Tìm đúng thứ bạn cần</h2>
+          </div>
+          <a href="#shop">Xem tất cả <ArrowRight size={16} /></a>
+        </div>
+        <motion.div className="category-grid" initial="hidden" animate="visible">
+          {visibleCategories.map((category, index) => {
+            const categoryProduct = products.find((product) => Number(product.categoryId) === Number(category.id));
+            return (
+              <motion.button
+                className={selectedCategory === category.id ? 'active' : ''}
+                key={category.id}
+                variants={fadeUp}
+                transition={{ delay: index * 0.06 }}
+                onClick={() => chooseCategory(category.id)}
+                type="button"
+              >
+                <span>
+                  <small>{categoryCopy[normalize(category.name)] || category.description || 'Khám phá ngay'}</small>
+                  <strong>{category.name}</strong>
+                  <i><ArrowRight size={16} /></i>
+                </span>
+                {categoryProduct?.imageUrl && <img src={assetUrl(categoryProduct.imageUrl)} alt="" />}
+              </motion.button>
+            );
+          })}
+        </motion.div>
+      </section>
+
+      <section className="featured-section">
+        <div className="section-title-row">
+          <div>
+            <span className="section-kicker">Được yêu thích</span>
+            <h2>Sản phẩm nổi bật</h2>
+          </div>
+        </div>
+        <motion.div className="featured-products-row" initial="hidden" animate="visible">
+          {featuredItems.map((product) => (
+            <ProductCard
+              featured
+              key={product.id}
+              product={product}
+              onAddToCart={handleAddToCart}
+              onToggleWishlist={handleToggleWishlist}
+            />
           ))}
-        </aside>
+        </motion.div>
+      </section>
 
-        <div className="catalog-main">
-          <div className="section-heading">
-            <h2>Featured</h2>
-            <select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sort products">
-              <option value="latest">Fresh</option>
-              <option value="priceAsc">Low price</option>
-              <option value="priceDesc">High price</option>
-              <option value="soldDesc">Best selling</option>
+      <section className="catalog-section" id="shop">
+        <div className="catalog-heading">
+          <div>
+            <span className="section-kicker">Cửa hàng</span>
+            <h2>Tất cả sản phẩm</h2>
+            <p>{filteredProducts.length} sản phẩm phù hợp</p>
+          </div>
+          <button className="mobile-filter-button" type="button" onClick={() => setFiltersOpen(true)}>
+            <SlidersHorizontal size={18} /> Bộ lọc
+          </button>
+        </div>
+
+        <form className="catalog-toolbar" onSubmit={submitSearch}>
+          <label className="catalog-search">
+            <Search size={18} />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm trong cửa hàng..." />
+          </label>
+          <label className="sort-control">
+            <span>Sắp xếp</span>
+            <select value={sort} onChange={(event) => setSort(event.target.value)}>
+              <option value="latest">Mới nhất</option>
+              <option value="priceAsc">Giá thấp đến cao</option>
+              <option value="priceDesc">Giá cao đến thấp</option>
+              <option value="ratingDesc">Đánh giá cao</option>
+              <option value="soldDesc">Bán chạy</option>
+              <option value="nameAsc">Tên A-Z</option>
             </select>
-          </div>
+            <ChevronDown size={16} />
+          </label>
+          <button className="apply-button" type="submit">Áp dụng</button>
+        </form>
 
-          <div className="featured-products-row">
-            {featuredItems.map((product) => (
-              <article className="shop-card featured-card" key={product.id}>
-                <button className="favorite-button" aria-label="Add to wishlist" type="button" />
-                <img className="shop-card-image" src={assetUrl(product.imageUrl)} alt={product.name} />
-                <div className="shop-card-body">
-                  <h3>{product.name}</h3>
-                  <strong>{currency(product.price)}</strong>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <form className="catalog-toolbar" onSubmit={submitSearch}>
-            <div className="soft-search">
-              <span>Search</span>
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products..." />
+        <div className="catalog-layout">
+          <aside className={`catalog-sidebar ${filtersOpen ? 'open' : ''}`}>
+            <div className="filter-header">
+              <h3>Bộ lọc</h3>
+              <button type="button" onClick={() => setFiltersOpen(false)} aria-label="Đóng bộ lọc"><X size={19} /></button>
             </div>
-            <label>
-              Sort by
-              <select value={sort} onChange={(event) => setSort(event.target.value)}>
-                <option value="latest">Newest</option>
-                <option value="oldest">Oldest</option>
-                <option value="priceAsc">Price low to high</option>
-                <option value="priceDesc">Price high to low</option>
-                <option value="ratingDesc">Top rated</option>
-                <option value="soldDesc">Best selling</option>
-                <option value="nameAsc">Name A-Z</option>
-                <option value="nameDesc">Name Z-A</option>
-              </select>
-            </label>
-            <button type="submit">Apply</button>
-            <button className="ghost-button" onClick={resetFilters} type="button">
-              Reset
-            </button>
-          </form>
+            <div className="filter-group">
+              <h4>Danh mục</h4>
+              <button className={!selectedCategory ? 'active' : ''} onClick={() => setSelectedCategory(null)} type="button">
+                Tất cả <span>{products.length}</span>
+              </button>
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  className={selectedCategory === category.id ? 'active' : ''}
+                  onClick={() => setSelectedCategory(category.id)}
+                  type="button"
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+            <div className="filter-group">
+              <h4>Khoảng giá</h4>
+              <div className="price-pair">
+                <label>Thấp nhất<input type="number" min="0" placeholder="0" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} /></label>
+                <label>Cao nhất<input type="number" min="0" placeholder="50.000.000" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} /></label>
+              </div>
+            </div>
+            <div className="filter-group">
+              <h4>Đánh giá</h4>
+              {[4, 3, 2, 1].map((rating) => (
+                <button
+                  className={`rating-filter ${Number(minRating) === rating ? 'active' : ''}`}
+                  key={rating}
+                  onClick={() => setMinRating(Number(minRating) === rating ? '' : String(rating))}
+                  type="button"
+                >
+                  <span className="stars">{Array.from({ length: 5 }, (_, index) => <Star key={index} size={14} fill={index < rating ? 'currentColor' : 'none'} />)}</span>
+                  <small>từ {rating} sao</small>
+                </button>
+              ))}
+            </div>
+            <div className="filter-actions">
+              <button className="apply-button" type="button" onClick={() => { fetchProducts(); setFiltersOpen(false); }}>Áp dụng</button>
+              <button className="reset-button" type="button" onClick={resetFilters}>Đặt lại</button>
+            </div>
+          </aside>
 
-          <div className="catalog-tabs">
-            <button className="active" type="button">
-              All Products
-            </button>
-            <span>{filteredProducts.length} products found</span>
-          </div>
-
-          <div className="catalog-grid">
-            {loading ? (
-              <div className="empty-state">Loading products...</div>
-            ) : filteredProducts.length ? (
-              filteredProducts.map((product) => (
-                <article className="shop-card compact-product-card" key={product.id}>
-                  <div className="image-wrap">
-                    <button className="favorite-button" aria-label="Add to wishlist" type="button" />
-                    <img className="shop-card-image" src={assetUrl(product.imageUrl)} alt={product.name} />
-                    <span className="category-pill">{product.categoryName}</span>
-                  </div>
-                  <div className="shop-card-body">
-                    <h3>{product.name}</h3>
-                    <p>{product.description}</p>
-                    <strong>{currency(product.price)}</strong>
-                    <small>Stock: {product.stockQuantity}</small>
-                    <p className="rating-line">* {(product.averageRating || 4.7).toFixed(1)} ({product.reviewCount || 18})</p>
-                    <div className="shop-card-actions">
-                      <Link className="outline-button" to={`/products/${product.id}`}>
-                        Details
-                      </Link>
-                      <button onClick={() => handleAddToCart(product.id)} type="button">
-                        Add to cart
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              ))
-            ) : (
-              <div className="empty-state">Khong co san pham nao</div>
-            )}
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div className="catalog-grid" key={`${loading}-${selectedCategory}-${sort}`} initial="hidden" animate="visible">
+              {loading ? (
+                Array.from({ length: 6 }, (_, index) => <div className="product-skeleton" key={index} />)
+              ) : filteredProducts.length ? (
+                filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onAddToCart={handleAddToCart}
+                    onToggleWishlist={handleToggleWishlist}
+                  />
+                ))
+              ) : (
+                <div className="empty-state">
+                  <Search size={34} />
+                  <h3>Không tìm thấy sản phẩm</h3>
+                  <p>Thử đổi từ khóa hoặc đặt lại bộ lọc.</p>
+                  <button type="button" onClick={resetFilters}>Đặt lại bộ lọc</button>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </section>
 
-      {message && <div className="toast-message">{message}</div>}
+      <AnimatePresence>
+        {message && (
+          <motion.div className="toast-message" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
+            <Check size={18} /> {message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {filtersOpen && <button className="filter-backdrop" aria-label="Đóng bộ lọc" type="button" onClick={() => setFiltersOpen(false)} />}
     </main>
   );
 }

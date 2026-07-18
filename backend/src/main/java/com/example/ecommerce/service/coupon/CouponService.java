@@ -145,6 +145,17 @@ public class CouponService {
         couponRepository.save(coupon);
     }
 
+    @Transactional
+    public void releaseUsage(String couponCode) {
+        if (couponCode == null || couponCode.isBlank()) {
+            return;
+        }
+        couponRepository.findByCodeIgnoreCase(couponCode).ifPresent(coupon -> {
+            coupon.setUsedCount(Math.max(0, coupon.getUsedCount() - 1));
+            couponRepository.save(coupon);
+        });
+    }
+
     private String normalizeCode(String code) {
         return code == null ? null : code.trim().toUpperCase();
     }

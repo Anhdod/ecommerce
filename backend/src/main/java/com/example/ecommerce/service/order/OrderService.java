@@ -41,7 +41,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -92,6 +94,8 @@ public class OrderService {
             throw new RuntimeException("Giỏ hàng trống");
         }
 
+        List<CartItem> checkoutItems = getSelectedCartItems(cart, request.getCartItemIds());
+
         Address selectedAddress = null;
         if (request.getAddressId() != null) {
             selectedAddress = addressService.getAddressEntityById(request.getAddressId());
@@ -137,12 +141,13 @@ public class OrderService {
                 .shippingMethod(shippingMethod)
                 .build();
 
-        for (CartItem cartItem : cart.getItems()) {
+        for (CartItem cartItem : checkoutItems) {
             OrderItem orderItem = OrderItem.builder()
                     .order(order)
                     .product(cartItem.getProduct())
                     .quantity(cartItem.getQuantity())
                     .price(cartItem.getPrice())
+                    .selectedColor(cartItem.getSelectedColor())
                     .build();
 
             order.getItems().add(orderItem);
@@ -176,18 +181,22 @@ public class OrderService {
                 "Đơn hàng #" + savedOrder.getId() + " đang chờ xử lý.",
                 "/orders/" + savedOrder.getId());
 
-        cart.getItems().clear();
+        cart.getItems().removeAll(checkoutItems);
         cartRepository.save(cart);
 
         return convertToResponse(savedOrder);
     }
 
     public OrderResponse createOrder(String shippingAddress, String phoneNumber, PaymentMethod paymentMethod) {
+        List<Long> cartItemIds = cartService.getMyCart().getItems().stream()
+                .map(com.example.ecommerce.dto.cart.CartItemResponse::getCartItemId)
+                .toList();
         return createOrder(CheckoutRequest.builder()
                 .shippingAddress(shippingAddress)
                 .phoneNumber(phoneNumber)
                 .paymentMethod(paymentMethod)
                 .shippingMethod(ShippingMethod.STANDARD)
+                .cartItemIds(cartItemIds)
                 .build());
     }
 
@@ -254,18 +263,18 @@ public class OrderService {
     }
 
     public List<OrderResponse> getAllOrders() {
-        return orderRepository.findAll().stream()
+        return orderRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
     }
 
     public CheckoutPreviewResponse getCheckoutPreview(ShippingMethod shippingMethod, Long addressId,
-            String couponCode) {
+            String couponCode, List<Long> cartItemIds) {
         if (shippingMethod == null) {
             shippingMethod = ShippingMethod.STANDARD;
         }
 
-        CartResponse cartResponse = cartService.getMyCart();
+        CartResponse cartResponse = filterCartForCheckout(cartService.getMyCart(), cartItemIds);
         BigDecimal subtotal = cartResponse.getTotalPrice() == null ? BigDecimal.ZERO : cartResponse.getTotalPrice();
         Coupon coupon = couponService.getValidCoupon(couponCode, subtotal);
         BigDecimal discountAmount = couponService.calculateDiscount(coupon, subtotal);
@@ -301,6 +310,45 @@ public class OrderService {
                 .defaultShippingAddress(defaultShippingAddress)
                 .selectedShippingAddressId(addressId)
                 .selectedShippingAddress(selectedShippingAddress)
+                .build();
+    }
+
+    private List<CartItem> getSelectedCartItems(Cart cart, List<Long> cartItemIds) {
+        if (cartItemIds == null || cartItemIds.isEmpty()) {
+            throw new RuntimeException("Vui lòng chọn sản phẩm cần thanh toán");
+        }
+
+        Set<Long> selectedIds = new LinkedHashSet<>(cartItemIds);
+        List<CartItem> selectedItems = cart.getItems().stream()
+                .filter(item -> selectedIds.contains(item.getId()))
+                .toList();
+        if (selectedItems.isEmpty() || selectedItems.size() != selectedIds.size()) {
+            throw new RuntimeException("Một hoặc nhiều sản phẩm đã chọn không còn trong giỏ hàng");
+        }
+        return selectedItems;
+    }
+
+    private CartResponse filterCartForCheckout(CartResponse cart, List<Long> cartItemIds) {
+        if (cartItemIds == null || cartItemIds.isEmpty()) {
+            throw new RuntimeException("Vui lòng chọn sản phẩm cần thanh toán");
+        }
+
+        Set<Long> selectedIds = new LinkedHashSet<>(cartItemIds);
+        List<com.example.ecommerce.dto.cart.CartItemResponse> selectedItems = cart.getItems().stream()
+                .filter(item -> selectedIds.contains(item.getCartItemId()))
+                .toList();
+        if (selectedItems.isEmpty() || selectedItems.size() != selectedIds.size()) {
+            throw new RuntimeException("Một hoặc nhiều sản phẩm đã chọn không còn trong giỏ hàng");
+        }
+        BigDecimal selectedTotal = selectedItems.stream()
+                .map(com.example.ecommerce.dto.cart.CartItemResponse::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return CartResponse.builder()
+                .cartId(cart.getCartId())
+                .userId(cart.getUserId())
+                .items(selectedItems)
+                .totalPrice(selectedTotal)
+                .totalItems(selectedItems.size())
                 .build();
     }
 
@@ -381,6 +429,33 @@ public class OrderService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
         OrderStatus oldStatus = order.getStatus();
+        if (oldStatus == status) {
+            return convertToResponse(order);
+        }
+        if (status == OrderStatus.CANCELLED) {
+            throw new RuntimeException("Hãy dùng chức năng hủy đơn để hoàn kho và đóng thanh toán");
+        }
+
+        OrderStatus nextStatus = switch (oldStatus) {
+            case PENDING -> OrderStatus.CONFIRMED;
+            case CONFIRMED -> OrderStatus.SHIPPING;
+            case SHIPPING -> OrderStatus.DELIVERED;
+            case DELIVERED, CANCELLED -> null;
+        };
+        if (nextStatus == null) {
+            throw new RuntimeException("Đơn hàng đã kết thúc và không thể đổi trạng thái");
+        }
+        if (status != nextStatus) {
+            throw new RuntimeException("Trạng thái tiếp theo hợp lệ là " + nextStatus);
+        }
+        if (status == OrderStatus.CONFIRMED) {
+            paymentService.validateOrderConfirmation(orderId);
+        }
+        if (status == OrderStatus.SHIPPING
+                && (order.getTrackingCode() == null || order.getTrackingCode().isBlank())) {
+            throw new RuntimeException("Phải có mã vận đơn trước khi bắt đầu giao hàng");
+        }
+
         order.setStatus(status);
         Order updatedOrder = orderRepository.save(order);
         orderStatusHistoryService.recordStatusChange(updatedOrder, oldStatus, status,
@@ -400,6 +475,10 @@ public class OrderService {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Khong tim thay don hang"));
+
+        if (order.getStatus() == OrderStatus.DELIVERED || order.getStatus() == OrderStatus.CANCELLED) {
+            throw new RuntimeException("Không thể sửa mã vận đơn của đơn hàng đã kết thúc");
+        }
 
         order.setTrackingCode(trackingCode.trim());
         Order updatedOrder = orderRepository.save(order);
@@ -427,13 +506,40 @@ public class OrderService {
             throw new RuntimeException("Không có quyền hủy đơn này");
         }
 
-        if (order.getStatus() == OrderStatus.SHIPPING ||
-                order.getStatus() == OrderStatus.DELIVERED ||
-                order.getStatus() == OrderStatus.CANCELLED) {
-
-            throw new RuntimeException("Không thể hủy đơn ở trạng thái này");
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new RuntimeException("Chỉ có thể hủy đơn đang chờ xác nhận");
         }
 
+        if (paymentService.isOrderPaid(orderId)) {
+            throw new RuntimeException("Đơn đã thanh toán, vui lòng liên hệ cửa hàng để được hoàn tiền");
+        }
+
+        cancelUnpaidOrder(order, "Người dùng hủy đơn hàng", "Đơn hàng đã được hủy theo yêu cầu của bạn.");
+    }
+
+    @Transactional
+    public OrderResponse cancelOrderByAdmin(Long orderId, String reason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+        if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.CONFIRMED) {
+            throw new RuntimeException("Admin chỉ có thể hủy đơn chờ xác nhận hoặc đã xác nhận");
+        }
+        if (paymentService.isOrderPaid(orderId)) {
+            throw new RuntimeException("Đơn đã thanh toán; cần hoàn tiền trước khi hủy");
+        }
+
+        String normalizedReason = reason == null || reason.isBlank()
+                ? "Cửa hàng hủy đơn"
+                : reason.trim();
+        Order cancelledOrder = cancelUnpaidOrder(
+                order,
+                "Admin hủy đơn: " + normalizedReason,
+                "Cửa hàng đã hủy đơn. Lý do: " + normalizedReason);
+        return convertToResponse(cancelledOrder);
+    }
+
+    private Order cancelUnpaidOrder(Order order, String historyReason, String customerMessage) {
         for (OrderItem item : order.getItems()) {
             Product product = item.getProduct();
             inventoryService.recordMovement(
@@ -446,12 +552,14 @@ public class OrderService {
         OrderStatus oldStatus = order.getStatus();
         order.setStatus(OrderStatus.CANCELLED);
         Order cancelledOrder = orderRepository.save(order);
-        orderStatusHistoryService.recordStatusChange(cancelledOrder, oldStatus, OrderStatus.CANCELLED,
-                "Người dùng hủy đơn hàng");
-        notificationService.createNotification(user, NotificationType.ORDER,
+        paymentService.cancelPendingPayment(order.getId());
+        couponService.releaseUsage(order.getCouponCode());
+        orderStatusHistoryService.recordStatusChange(cancelledOrder, oldStatus, OrderStatus.CANCELLED, historyReason);
+        notificationService.createNotification(order.getUser(), NotificationType.ORDER,
                 "Đơn hàng đã bị hủy",
-                "Đơn hàng #" + order.getId() + " đã được hủy và hoàn kho.",
+                "Đơn hàng #" + order.getId() + ". " + customerMessage,
                 "/orders/" + order.getId());
+        return cancelledOrder;
     }
 
     @Transactional
@@ -492,11 +600,13 @@ public class OrderService {
     private OrderResponse convertToResponse(Order order) {
         List<OrderItemResponse> items = order.getItems().stream()
                 .map(item -> OrderItemResponse.builder()
+                        .orderItemId(item.getId())
                         .productId(item.getProduct().getId())
                         .productName(item.getProduct().getName())
                         .imageUrl(item.getProduct().getImageUrl())
                         .price(item.getPrice())
                         .quantity(item.getQuantity())
+                        .selectedColor(item.getSelectedColor())
                         .subtotal(item.getSubtotal())
                         .build())
                 .collect(Collectors.toList());

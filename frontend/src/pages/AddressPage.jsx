@@ -1,5 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  Check,
+  CheckCircle2,
+  Edit3,
+  Home,
+  MapPin,
+  Navigation,
+  Phone,
+  Plus,
+  Save,
+  Trash2,
+  UserRound,
+  X,
+} from 'lucide-react';
 import api from '../api';
+import './AddressPage.css';
 
 const initialForm = {
   label: '',
@@ -16,24 +33,38 @@ export default function AddressPage({ user }) {
   const [addresses, setAddresses] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState(null);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+  const formRef = useRef(null);
+  const messageTimer = useRef(null);
 
-  const showMessage = (text) => {
-    setMessage(text);
-    window.setTimeout(() => setMessage(''), 5000);
+  const showMessage = (text, type = 'success') => {
+    window.clearTimeout(messageTimer.current);
+    setMessage({ text, type });
+    messageTimer.current = window.setTimeout(() => setMessage(null), 4000);
   };
 
   const loadAddresses = async () => {
     try {
+      setLoading(true);
       const result = await api('/api/users/addresses');
       setAddresses(result.data || []);
     } catch (error) {
-      showMessage(error?.message || 'Không tải được địa chỉ');
+      showMessage(error?.message || 'Không tải được danh sách địa chỉ.', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const resetForm = () => {
+    setEditingId(null);
+    setForm(initialForm);
+  };
+
   const handleChange = (field) => (event) => {
-    setForm((prev) => ({ ...prev, [field]: event.target.value }));
+    setForm((current) => ({ ...current, [field]: event.target.value }));
   };
 
   const handleEdit = (address) => {
@@ -48,151 +79,172 @@ export default function AddressPage({ user }) {
       postalCode: address.postalCode || '',
       defaultAddress: address.defaultAddress === true,
     });
+    window.setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
+      setSaving(true);
       if (editingId) {
-        await api(`/api/users/addresses/${editingId}`, {
-          method: 'PUT',
-          body: form,
-        });
-        showMessage('Cập nhật địa chỉ thành công');
+        await api(`/api/users/addresses/${editingId}`, { method: 'PUT', body: form });
+        showMessage('Đã cập nhật địa chỉ.');
       } else {
-        await api('/api/users/addresses', {
-          method: 'POST',
-          body: form,
-        });
-        showMessage('Tạo địa chỉ thành công');
+        await api('/api/users/addresses', { method: 'POST', body: form });
+        showMessage('Đã thêm địa chỉ mới.');
       }
-      setForm(initialForm);
-      setEditingId(null);
-      loadAddresses();
+      resetForm();
+      await loadAddresses();
     } catch (error) {
-      showMessage(error?.message || 'Không lưu được địa chỉ');
+      showMessage(error?.message || 'Không thể lưu địa chỉ.', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDefault = async (addressId) => {
     try {
+      setBusyId(addressId);
       await api(`/api/users/addresses/${addressId}/default`, { method: 'PUT' });
-      showMessage('Đã đặt thành địa chỉ mặc định');
-      loadAddresses();
+      showMessage('Đã đặt làm địa chỉ mặc định.');
+      await loadAddresses();
     } catch (error) {
-      showMessage(error?.message || 'Không chọn được địa chỉ mặc định');
+      showMessage(error?.message || 'Không thể đổi địa chỉ mặc định.', 'error');
+    } finally {
+      setBusyId(null);
     }
   };
 
-  const handleDelete = async (addressId) => {
-    if (!window.confirm('Delete this address?')) return;
+  const handleDelete = async (address) => {
+    if (!window.confirm(`Xóa địa chỉ "${address.label || 'giao hàng'}"?`)) return;
     try {
-      await api(`/api/users/addresses/${addressId}`, { method: 'DELETE' });
-      showMessage('Xóa địa chỉ thành công');
-      loadAddresses();
+      setBusyId(address.id);
+      await api(`/api/users/addresses/${address.id}`, { method: 'DELETE' });
+      if (editingId === address.id) resetForm();
+      showMessage('Đã xóa địa chỉ.');
+      await loadAddresses();
     } catch (error) {
-      showMessage(error?.message || 'Không xóa được địa chỉ');
+      showMessage(error?.message || 'Không thể xóa địa chỉ.', 'error');
+    } finally {
+      setBusyId(null);
     }
   };
 
   useEffect(() => {
-    if (user) {
-      loadAddresses();
-    }
+    if (user) loadAddresses();
+    return () => window.clearTimeout(messageTimer.current);
   }, [user]);
 
   if (!user) {
     return (
-      <main className="page-shell">
-        <section className="panel">
-          <h2>Địa chỉ</h2>
-          <p>Đăng nhập để quản lý địa chỉ giao hàng.</p>
+      <main className="address-page">
+        <section className="address-auth-state">
+          <span><MapPin size={34} /></span>
+          <h1>Địa chỉ giao hàng</h1>
+          <p>Đăng nhập để quản lý địa chỉ nhận hàng của bạn.</p>
+          <Link to="/login">Đăng nhập</Link>
         </section>
       </main>
     );
   }
 
   return (
-    <main className="page-shell">
-      <section className="panel split">
-        <div className="sidebar">
-          <h2>Địa chỉ của tôi</h2>
-          <ul>
-            {addresses.map((address) => (
-              <li key={address.id} className={address.defaultAddress ? 'active' : ''}>
-                <strong>{address.label}</strong>
-                <p>{address.recipientName}</p>
-                <p>{address.addressLine}, {address.city}, {address.province}</p>
-                <p>{address.phoneNumber}</p>
-                <div className="row-actions">
-                  <button className="small" onClick={() => handleEdit(address)}>
-                    Edit
-                  </button>
-                  <button className="small" onClick={() => handleDefault(address.id)}>
-                    Default
-                  </button>
-                  <button className="small danger" onClick={() => handleDelete(address.id)}>
-                    Delete
-                  </button>
-                </div>
-              </li>
-            ))}
-            {!addresses.length && <p>Chưa có địa chỉ nào.</p>}
-          </ul>
-        </div>
+    <main className="address-page antialiased">
+      <div className="address-container">
+        <header className="address-heading">
+          <div>
+            <span>Tài khoản</span>
+            <h1>Địa chỉ giao hàng</h1>
+            <p>Quản lý thông tin nhận hàng để thanh toán nhanh hơn.</p>
+          </div>
+          <button type="button" onClick={() => { resetForm(); formRef.current?.scrollIntoView({ behavior: 'smooth' }); }}>
+            <Plus size={17} /> Thêm địa chỉ
+          </button>
+        </header>
 
-        <div>
-          <h2>{editingId ? 'Update Address' : 'Create Address'}</h2>
-          <form onSubmit={handleSubmit} className="form-grid">
-            <label>
-              Label
-              <input value={form.label} onChange={handleChange('label')} required />
-            </label>
-            <label>
-              Recipient name
-              <input value={form.recipientName} onChange={handleChange('recipientName')} required />
-            </label>
-            <label>
-              Phone number
-              <input value={form.phoneNumber} onChange={handleChange('phoneNumber')} required />
-            </label>
-            <label>
-              Address line
-              <input value={form.addressLine} onChange={handleChange('addressLine')} required />
-            </label>
-            <label>
-              City
-              <input value={form.city} onChange={handleChange('city')} required />
-            </label>
-            <label>
-              Province
-              <input value={form.province} onChange={handleChange('province')} required />
-            </label>
-            <label>
-              Postal code
-              <input value={form.postalCode} onChange={handleChange('postalCode')} required />
-            </label>
-            <label className="checkbox-row">
-              <input
-                type="checkbox"
-                checked={form.defaultAddress}
-                onChange={(event) => setForm((prev) => ({ ...prev, defaultAddress: event.target.checked }))}
-              />
-              Default address
-            </label>
-            <button type="submit">{editingId ? 'Update address' : 'Add address'}</button>
-            {editingId && (
-              <button type="button" className="small" onClick={() => {
-                setEditingId(null);
-                setForm(initialForm);
-              }}>
-                Cancel
-              </button>
+        <div className="address-layout">
+          <section className="address-list-section">
+            <div className="address-section-heading">
+              <div><h2>Địa chỉ đã lưu</h2><p>{addresses.length} địa chỉ trong tài khoản</p></div>
+              <MapPin size={20} />
+            </div>
+
+            {loading && !addresses.length ? (
+              <div className="address-skeleton"><span /><span /></div>
+            ) : addresses.length ? (
+              <div className="address-card-list">
+                {addresses.map((address, index) => (
+                  <motion.article
+                    className={`address-card ${address.defaultAddress ? 'is-default' : ''}`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.04 }}
+                    key={address.id}
+                  >
+                    <div className="address-card-icon"><Home size={19} /></div>
+                    <div className="address-card-content">
+                      <div className="address-card-title">
+                        <h3>{address.label || 'Địa chỉ giao hàng'}</h3>
+                        {address.defaultAddress && <span><CheckCircle2 size={13} /> Mặc định</span>}
+                      </div>
+                      <strong><UserRound size={14} /> {address.recipientName}</strong>
+                      <p><Navigation size={14} /> <span>{[address.addressLine, address.city, address.province, address.postalCode].filter(Boolean).join(', ')}</span></p>
+                      <p><Phone size={14} /> <span>{address.phoneNumber}</span></p>
+                      <div className="address-card-actions">
+                        {!address.defaultAddress && (
+                          <button type="button" disabled={busyId === address.id} onClick={() => handleDefault(address.id)}>
+                            <Check size={15} /> Đặt mặc định
+                          </button>
+                        )}
+                        <button type="button" title="Chỉnh sửa địa chỉ" disabled={busyId === address.id} onClick={() => handleEdit(address)}><Edit3 size={16} /> Sửa</button>
+                        <button className="delete-address" type="button" title="Xóa địa chỉ" disabled={busyId === address.id} onClick={() => handleDelete(address)}><Trash2 size={16} /> Xóa</button>
+                      </div>
+                    </div>
+                  </motion.article>
+                ))}
+              </div>
+            ) : (
+              <div className="address-empty-state">
+                <span><MapPin size={30} /></span>
+                <h3>Chưa có địa chỉ</h3>
+                <p>Thêm địa chỉ nhận hàng đầu tiên của bạn.</p>
+              </div>
             )}
-          </form>
-          {message && <div className="message">{message}</div>}
+          </section>
+
+          <motion.section className="address-form-section" ref={formRef} layout>
+            <div className="address-section-heading">
+              <div><h2>{editingId ? 'Chỉnh sửa địa chỉ' : 'Thêm địa chỉ mới'}</h2><p>Điền đầy đủ thông tin người nhận.</p></div>
+              {editingId ? <Edit3 size={20} /> : <Plus size={20} />}
+            </div>
+            <form className="address-form" onSubmit={handleSubmit}>
+              <label className="address-wide-field">Tên gợi nhớ<input value={form.label} onChange={handleChange('label')} placeholder="Ví dụ: Nhà riêng, Văn phòng" /></label>
+              <label>Họ và tên người nhận<input value={form.recipientName} onChange={handleChange('recipientName')} placeholder="Nguyễn Văn A" required /></label>
+              <label>Số điện thoại<input type="tel" value={form.phoneNumber} onChange={handleChange('phoneNumber')} placeholder="0901 234 567" required /></label>
+              <label className="address-wide-field">Địa chỉ cụ thể<input value={form.addressLine} onChange={handleChange('addressLine')} placeholder="Số nhà, tên đường, phường/xã" required /></label>
+              <label>Tỉnh / Thành phố<input value={form.province} onChange={handleChange('province')} placeholder="TP. Hồ Chí Minh" /></label>
+              <label>Quận / Huyện<input value={form.city} onChange={handleChange('city')} placeholder="Quận 1" /></label>
+              <label className="address-wide-field">Mã bưu chính<input value={form.postalCode} onChange={handleChange('postalCode')} placeholder="700000" /></label>
+              <label className="address-default-control">
+                <input type="checkbox" checked={form.defaultAddress} onChange={(event) => setForm((current) => ({ ...current, defaultAddress: event.target.checked }))} />
+                <span><strong>Đặt làm địa chỉ mặc định</strong><small>Tự động chọn địa chỉ này khi thanh toán.</small></span>
+              </label>
+              <div className="address-form-actions">
+                {editingId && <button className="address-cancel-button" type="button" onClick={resetForm}><X size={16} /> Hủy</button>}
+                <button className="address-save-button" type="submit" disabled={saving}><Save size={16} /> {saving ? 'Đang lưu...' : editingId ? 'Lưu thay đổi' : 'Thêm địa chỉ'}</button>
+              </div>
+            </form>
+          </motion.section>
         </div>
-      </section>
+      </div>
+
+      <AnimatePresence>
+        {message && (
+          <motion.div className={`address-toast ${message.type}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
+            {message.type === 'success' ? <CheckCircle2 size={18} /> : <X size={18} />} {message.text}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

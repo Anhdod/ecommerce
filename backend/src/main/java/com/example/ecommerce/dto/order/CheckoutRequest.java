@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import java.util.List;
 
 @Getter
 @Setter
@@ -25,4 +26,5 @@ public class CheckoutRequest {
 
     private ShippingMethod shippingMethod;
     private String couponCode;
+    private List<Long> cartItemIds;
 }

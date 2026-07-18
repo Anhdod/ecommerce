@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,7 +45,7 @@ public class CartService {
 
         // Thêm sản phẩm vào giỏ hàng
         @Transactional
-        public CartResponse addToCart(Long productId, int quantity) {
+        public CartResponse addToCart(Long productId, int quantity, String selectedColor) {
                 String username = SecurityContextHolder.getContext().getAuthentication().getName();
                 User user = userRepository.findByUsername(username)
                                 .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
@@ -52,27 +53,39 @@ public class CartService {
                 Product product = productRepository.findById(productId)
                                 .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm"));
 
-                if (product.getStockQuantity() < quantity) {
-                        throw new RuntimeException("Sản phẩm không đủ tồn kho");
+                if (quantity <= 0) {
+                        throw new RuntimeException("Số lượng phải lớn hơn 0");
                 }
 
                 Cart cart = cartRepository.findByUserId(user.getId())
                                 .orElseGet(() -> createNewCart(user));
-
-                // Kiểm tra sản phẩm đã có trong giỏ chưa
-                CartItem existingItem = cart.getItems().stream()
+                int quantityInCart = cart.getItems().stream()
                                 .filter(item -> item.getProduct().getId().equals(productId))
+                                .mapToInt(CartItem::getQuantity)
+                                .sum();
+                if (product.getStockQuantity() < quantityInCart + quantity) {
+                        throw new RuntimeException("Sản phẩm không đủ tồn kho");
+                }
+
+                String normalizedColor = normalizeSelectedColor(product, selectedColor);
+
+                // Mỗi màu là một dòng giỏ hàng riêng; cùng màu thì tăng số lượng.
+                CartItem existingItem = cart.getItems().stream()
+                                .filter(item -> item.getProduct().getId().equals(productId)
+                                                && Objects.equals(item.getSelectedColor(), normalizedColor))
                                 .findFirst()
                                 .orElse(null);
 
                 if (existingItem != null) {
                         existingItem.setQuantity(existingItem.getQuantity() + quantity);
+                        existingItem.setSelectedColor(normalizedColor);
                 } else {
                         CartItem newItem = CartItem.builder()
                                         .cart(cart)
                                         .product(product)
                                         .quantity(quantity)
                                         .price(product.getPrice())
+                                        .selectedColor(normalizedColor)
                                         .build();
                         cart.getItems().add(newItem);
                 }
@@ -89,11 +102,16 @@ public class CartService {
         private CartResponse convertToResponse(Cart cart) {
                 List<CartItemResponse> items = cart.getItems().stream()
                                 .map(item -> CartItemResponse.builder()
+                                                .cartItemId(item.getId())
                                                 .productId(item.getProduct().getId())
                                                 .productName(item.getProduct().getName())
                                                 .imageUrl(item.getProduct().getImageUrl())
                                                 .price(item.getPrice())
                                                 .quantity(item.getQuantity())
+                                                .selectedColor(item.getSelectedColor())
+                                                .availableColors(item.getProduct().getColors() == null
+                                                                ? List.of()
+                                                                : List.copyOf(item.getProduct().getColors()))
                                                 .subtotal(item.getSubtotal())
                                                 .build())
                                 .collect(Collectors.toList());
@@ -107,8 +125,21 @@ public class CartService {
                                 .build();
         }
 
+        private String normalizeSelectedColor(Product product, String selectedColor) {
+                if (product.getColors() == null || product.getColors().isEmpty()) {
+                        return null;
+                }
+                if (selectedColor == null || selectedColor.isBlank()) {
+                        throw new RuntimeException("Vui lòng chọn màu sắc");
+                }
+                return product.getColors().stream()
+                                .filter(color -> color.equalsIgnoreCase(selectedColor.trim()))
+                                .findFirst()
+                                .orElseThrow(() -> new RuntimeException("Màu sắc không hợp lệ"));
+        }
+
         @Transactional
-        public CartResponse removeFromCart(Long productId) {
+        public CartResponse removeFromCart(Long cartItemId) {
                 String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
                 User user = userRepository.findByUsername(username)
@@ -118,7 +149,7 @@ public class CartService {
                                 .orElseThrow(() -> new RuntimeException("Giỏ hàng không tồn tại"));
 
                 CartItem item = cart.getItems().stream()
-                                .filter(i -> i.getProduct().getId().equals(productId))
+                                .filter(i -> i.getId().equals(cartItemId))
                                 .findFirst()
                                 .orElseThrow(() -> new RuntimeException("Sản phẩm không có trong giỏ"));
 
@@ -129,7 +160,7 @@ public class CartService {
         }
 
         @Transactional
-        public CartResponse updateQuantity(Long productId, int quantity) {
+        public CartResponse updateQuantity(Long cartItemId, int quantity) {
                 if (quantity <= 0) {
                         throw new RuntimeException("Số lượng phải > 0");
                 }
@@ -143,18 +174,52 @@ public class CartService {
                                 .orElseThrow(() -> new RuntimeException("Giỏ hàng không tồn tại"));
 
                 CartItem item = cart.getItems().stream()
-                                .filter(i -> i.getProduct().getId().equals(productId))
+                                .filter(i -> i.getId().equals(cartItemId))
                                 .findFirst()
                                 .orElseThrow(() -> new RuntimeException("Sản phẩm không có trong giỏ"));
 
                 Product product = item.getProduct();
 
-                if (product.getStockQuantity() < quantity) {
+                int otherVariantQuantity = cart.getItems().stream()
+                                .filter(cartItem -> !cartItem.getId().equals(cartItemId)
+                                                && cartItem.getProduct().getId().equals(product.getId()))
+                                .mapToInt(CartItem::getQuantity)
+                                .sum();
+                if (product.getStockQuantity() < otherVariantQuantity + quantity) {
                         throw new RuntimeException("Không đủ hàng trong kho");
                 }
 
                 item.setQuantity(quantity);
 
+                cartRepository.save(cart);
+                return convertToResponse(cart);
+        }
+
+        @Transactional
+        public CartResponse updateSelectedColor(Long cartItemId, String selectedColor) {
+                String username = SecurityContextHolder.getContext().getAuthentication().getName();
+                User user = userRepository.findByUsername(username)
+                                .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
+                Cart cart = cartRepository.findByUserId(user.getId())
+                                .orElseThrow(() -> new RuntimeException("Giỏ hàng không tồn tại"));
+                CartItem item = cart.getItems().stream()
+                                .filter(cartItem -> cartItem.getId().equals(cartItemId))
+                                .findFirst()
+                                .orElseThrow(() -> new RuntimeException("Sản phẩm không có trong giỏ"));
+
+                String normalizedColor = normalizeSelectedColor(item.getProduct(), selectedColor);
+                CartItem matchingVariant = cart.getItems().stream()
+                                .filter(cartItem -> !cartItem.getId().equals(cartItemId)
+                                                && cartItem.getProduct().getId().equals(item.getProduct().getId())
+                                                && Objects.equals(cartItem.getSelectedColor(), normalizedColor))
+                                .findFirst()
+                                .orElse(null);
+                if (matchingVariant != null) {
+                        matchingVariant.setQuantity(matchingVariant.getQuantity() + item.getQuantity());
+                        cart.getItems().remove(item);
+                } else {
+                        item.setSelectedColor(normalizedColor);
+                }
                 cartRepository.save(cart);
                 return convertToResponse(cart);
         }

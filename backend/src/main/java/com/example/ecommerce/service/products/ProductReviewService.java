@@ -4,6 +4,7 @@ import com.example.ecommerce.dto.ApiResponse;
 import com.example.ecommerce.dto.products.ProductReviewRequest;
 import com.example.ecommerce.dto.products.ProductReviewResponse;
 import com.example.ecommerce.entity.auth.User;
+import com.example.ecommerce.entity.auth.Role;
 import com.example.ecommerce.entity.product.Product;
 import com.example.ecommerce.entity.product.ProductReview;
 import com.example.ecommerce.repository.auth.UserRepository;
@@ -121,7 +122,7 @@ public class ProductReviewService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy review"));
 
         boolean isOwner = review.getUser().getId().equals(user.getId());
-        boolean isModerator = "ADMIN".equals(user.getRole()) || "STAFF".equals(user.getRole());
+        boolean isModerator = user.getRole() == Role.ADMIN || user.getRole() == Role.STAFF;
 
         if (!isOwner && !isModerator) {
             throw new RuntimeException("Bạn không có quyền xóa review này");

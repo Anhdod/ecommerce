@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Getter
 @Setter
@@ -28,6 +29,14 @@ public class ProductRequest {
     private Long categoryId;
 
     private String imageUrl;
+
+    @Size(max = 100, message = "Thương hiệu tối đa 100 ký tự")
+    private String brand;
+
+    @Min(value = 0, message = "Thời gian bảo hành không được âm")
+    private Integer warrantyMonths;
+
+    private List<@Size(max = 50, message = "Tên màu tối đa 50 ký tự") String> colors;
 
     private Boolean featured;
 }

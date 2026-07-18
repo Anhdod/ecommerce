@@ -19,6 +19,7 @@ public class DemoDataInitializer {
                                               ProductRepository productRepository) {
         return args -> {
             if (productRepository.count() > 0) {
+                enrichDemoProducts(productRepository);
                 return;
             }
 
@@ -41,27 +42,63 @@ public class DemoDataInitializer {
                     .build());
 
             productRepository.saveAll(List.of(
-                    product("iPhone 15 Pro", "A premium smartphone with A17 Pro performance.", "999.00", 18,
+                    product("iPhone 15 Pro", "A premium smartphone with A17 Pro performance.", "24975000", 18,
                             "https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&w=900&q=80",
                             phones, true),
-                    product("Samsung Galaxy S24", "Flagship Android phone with excellent display and camera.", "899.00", 24,
+                    product("Samsung Galaxy S24", "Flagship Android phone with excellent display and camera.", "22475000", 24,
                             "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?auto=format&fit=crop&w=900&q=80",
                             phones, true),
-                    product("MacBook Air M3", "Lightweight laptop for productivity and development.", "1199.00", 12,
+                    product("MacBook Air M3", "Lightweight laptop for productivity and development.", "29975000", 12,
                             "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=900&q=80",
                             laptops, true),
-                    product("Dell XPS 13", "Compact Windows laptop with premium build quality.", "1099.00", 15,
+                    product("Dell XPS 13", "Compact Windows laptop with premium build quality.", "27475000", 15,
                             "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=900&q=80",
                             laptops, false),
-                    product("Sony WH-1000XM5", "Noise-cancelling wireless headphones for travel and work.", "349.00", 30,
+                    product("Sony WH-1000XM5", "Noise-cancelling wireless headphones for travel and work.", "8725000", 30,
                             "https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&w=900&q=80",
                             audio, true),
-                    product("AirPods Pro", "Wireless earbuds with active noise cancellation.", "249.00", 40,
+                    product("AirPods Pro", "Wireless earbuds with active noise cancellation.", "6225000", 40,
                             "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?auto=format&fit=crop&w=900&q=80",
                             audio, false)
             ));
+            enrichDemoProducts(productRepository);
         };
     }
+
+    private void enrichDemoProducts(ProductRepository productRepository) {
+        productRepository.findAll().forEach(product -> {
+            ProductDetails details = switch (product.getName()) {
+                case "iPhone 15 Pro" -> new ProductDetails("Apple", List.of("Titan Đen", "Titan Xanh", "Titan Tự nhiên"));
+                case "Samsung Galaxy S24" -> new ProductDetails("Samsung", List.of("Đen", "Tím", "Vàng"));
+                case "MacBook Air M3" -> new ProductDetails("Apple", List.of("Bạc", "Xám", "Xanh đêm"));
+                case "Dell XPS 13" -> new ProductDetails("Dell", List.of("Bạc", "Đen"));
+                case "Sony WH-1000XM5" -> new ProductDetails("Sony", List.of("Đen", "Bạc"));
+                case "AirPods Pro" -> new ProductDetails("Apple", List.of("Trắng"));
+                default -> null;
+            };
+            if (details == null) {
+                return;
+            }
+            boolean changed = false;
+            if (product.getBrand() == null || product.getBrand().isBlank()) {
+                product.setBrand(details.brand());
+                changed = true;
+            }
+            if (product.getWarrantyMonths() == null) {
+                product.setWarrantyMonths(12);
+                changed = true;
+            }
+            if (product.getColors() == null || product.getColors().isEmpty()) {
+                product.setColors(new java.util.ArrayList<>(details.colors()));
+                changed = true;
+            }
+            if (changed) {
+                productRepository.save(product);
+            }
+        });
+    }
+
+    private record ProductDetails(String brand, List<String> colors) {}
 
     private Product product(String name,
                             String description,

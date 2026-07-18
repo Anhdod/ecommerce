@@ -29,30 +29,42 @@ public class CartController {
     @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<CartResponse>> addToCart(
             @PathVariable Long productId,
-            @RequestParam(defaultValue = "1") int quantity) {
+            @RequestParam(defaultValue = "1") int quantity,
+            @RequestParam(required = false) String selectedColor) {
 
-        CartResponse cart = cartService.addToCart(productId, quantity);
+        CartResponse cart = cartService.addToCart(productId, quantity, selectedColor);
         return ResponseEntity.ok(ApiResponse.success("Thêm vào giỏ hàng thành công", cart));
     }
 
-    @DeleteMapping("/remove/{productId}")
+    @DeleteMapping("/remove/{cartItemId}")
     @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<CartResponse>> removeFromCart(
-            @PathVariable Long productId) {
+            @PathVariable Long cartItemId) {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Xóa khỏi giỏ hàng thành công",
-                        cartService.removeFromCart(productId)));
+                        cartService.removeFromCart(cartItemId)));
     }
 
-    @PutMapping("/update/{productId}")
+    @PutMapping("/update/{cartItemId}")
     @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
     public ResponseEntity<ApiResponse<CartResponse>> updateQuantity(
-            @PathVariable Long productId,
+            @PathVariable Long cartItemId,
             @RequestParam int quantity) {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Cập nhật số lượng thành công",
-                        cartService.updateQuantity(productId, quantity)));
+                        cartService.updateQuantity(cartItemId, quantity)));
+    }
+
+    @PutMapping("/update-color/{cartItemId}")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
+    public ResponseEntity<ApiResponse<CartResponse>> updateSelectedColor(
+            @PathVariable Long cartItemId,
+            @RequestParam String selectedColor) {
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Cập nhật màu sắc thành công",
+                        cartService.updateSelectedColor(cartItemId, selectedColor)));
     }
 }

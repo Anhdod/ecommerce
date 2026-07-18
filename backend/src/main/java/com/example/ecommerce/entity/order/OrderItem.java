@@ -31,6 +31,8 @@ public class OrderItem {
 
     private BigDecimal price;        // Giá tại thời điểm đặt hàng
 
+    private String selectedColor;
+
     public BigDecimal getSubtotal() {
         return price.multiply(BigDecimal.valueOf(quantity));
     }

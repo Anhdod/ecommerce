@@ -1,0 +1,66 @@
+.app-pagination {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--admin-border, #e5e7eb);
+  color: var(--admin-muted-strong, #64748b);
+}
+
+.app-pagination p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.app-pagination p strong {
+  color: var(--admin-text, #0f172a);
+}
+
+.app-pagination > div {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-pagination button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--admin-border, #dbe2ea);
+  border-radius: 7px;
+  background: var(--admin-surface, #fff);
+  color: var(--admin-muted-strong, #475569);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.app-pagination button:hover:not(:disabled),
+.app-pagination button.active {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.app-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: .4;
+}
+
+@media (max-width: 560px) {
+  .app-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .app-pagination > div {
+    justify-content: center;
+  }
+
+  .app-pagination p {
+    text-align: center;
+  }
+}

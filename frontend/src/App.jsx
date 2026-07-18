@@ -1,29 +1,34 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import NavBar from './components/NavBar';
 import api from './api';
-import AuthPage from './pages/AuthPage';
-import ProductListPage from './pages/ProductListPage';
-import ProductDetailPage from './pages/ProductDetailPage';
-import CartPage from './pages/CartPage';
-import AddressPage from './pages/AddressPage';
-import OrdersPage from './pages/OrdersPage';
-import WishlistPage from './pages/WishlistPage';
-import CheckoutPage from './pages/CheckoutPage';
-import PaymentsPage from './pages/PaymentsPage';
-import AdminDashboardPage from './pages/AdminDashboardPage';
-import AdminProductsPage from './pages/AdminProductsPage';
-import AdminCategoriesPage from './pages/AdminCategoriesPage';
-import AdminUsersPage from './pages/AdminUsersPage';
-import AdminCouponsPage from './pages/AdminCouponsPage';
-import AdminInventoryPage from './pages/AdminInventoryPage';
-import AdminBannersPage from './pages/AdminBannersPage';
-import AdminReviewsPage from './pages/AdminReviewsPage';
-import NotificationsPage from './pages/NotificationsPage';
-import ProfilePage from './pages/ProfilePage';
-import OrderDetailPage from './pages/OrderDetailPage';
-import NotFoundPage from './pages/NotFoundPage';
 import './styles.css';
+
+const AuthPage = lazy(() => import('./pages/AuthPage'));
+const ProductListPage = lazy(() => import('./pages/ProductListPage'));
+const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'));
+const ProductReviewsPage = lazy(() => import('./pages/ProductReviewsPage'));
+const CartPage = lazy(() => import('./pages/CartPage'));
+const AddressPage = lazy(() => import('./pages/AddressPage'));
+const OrdersPage = lazy(() => import('./pages/OrdersPage'));
+const WishlistPage = lazy(() => import('./pages/WishlistPage'));
+const CheckoutPage = lazy(() => import('./pages/CheckoutPage'));
+const OrderPaymentPage = lazy(() => import('./pages/OrderPaymentPage'));
+const PaymentsPage = lazy(() => import('./pages/PaymentsPage'));
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
+const AdminProductsPage = lazy(() => import('./pages/AdminProductsPage'));
+const AdminCategoriesPage = lazy(() => import('./pages/AdminCategoriesPage'));
+const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
+const AdminCouponsPage = lazy(() => import('./pages/AdminCouponsPage'));
+const AdminInventoryPage = lazy(() => import('./pages/AdminInventoryPage'));
+const AdminBannersPage = lazy(() => import('./pages/AdminBannersPage'));
+const AdminReviewsPage = lazy(() => import('./pages/AdminReviewsPage'));
+const AdminOrdersPage = lazy(() => import('./pages/AdminOrdersPage'));
+const AdminPaymentsPage = lazy(() => import('./pages/AdminPaymentsPage'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const OrderDetailPage = lazy(() => import('./pages/OrderDetailPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 function App() {
   const [user, setUser] = useState(null);
@@ -93,29 +98,35 @@ function App() {
     <BrowserRouter>
       <NavBar user={user} onLogout={handleLogout} />
       {message && <div className="message page-notice">{message}</div>}
-      <Routes>
-        <Route path="/" element={<ProductListPage user={user} />} />
-        <Route path="/login" element={<AuthPage user={user} onAuthSuccess={handleAuthSuccess} />} />
-        <Route path="/products/:id" element={<ProductDetailPage user={user} />} />
-        <Route path="/cart" element={<CartPage user={user} />} />
-        <Route path="/addresses" element={<AddressPage user={user} />} />
-        <Route path="/orders" element={<OrdersPage user={user} />} />
-        <Route path="/orders/:id" element={<OrderDetailPage user={user} />} />
-        <Route path="/wishlist" element={<WishlistPage user={user} />} />
-        <Route path="/checkout" element={<CheckoutPage user={user} />} />
-        <Route path="/payments" element={<PaymentsPage user={user} />} />
-        <Route path="/notifications" element={<NotificationsPage user={user} />} />
-        <Route path="/admin" element={<AdminDashboardPage user={user} />} />
-        <Route path="/admin/products" element={<AdminProductsPage user={user} />} />
-        <Route path="/admin/categories" element={<AdminCategoriesPage user={user} />} />
-        <Route path="/admin/users" element={<AdminUsersPage user={user} />} />
-        <Route path="/admin/coupons" element={<AdminCouponsPage user={user} />} />
-        <Route path="/admin/inventory" element={<AdminInventoryPage user={user} />} />
-        <Route path="/admin/banners" element={<AdminBannersPage user={user} />} />
-        <Route path="/admin/reviews" element={<AdminReviewsPage user={user} />} />
-        <Route path="/profile" element={<ProfilePage user={user} onProfileUpdate={handleProfileUpdate} />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+      <Suspense fallback={<div className="route-loading" role="status"><span /></div>}>
+        <Routes>
+          <Route path="/" element={<ProductListPage user={user} />} />
+          <Route path="/login" element={<AuthPage user={user} onAuthSuccess={handleAuthSuccess} />} />
+          <Route path="/products/:id" element={<ProductDetailPage user={user} />} />
+          <Route path="/products/:id/reviews" element={<ProductReviewsPage />} />
+          <Route path="/cart" element={<CartPage user={user} />} />
+          <Route path="/addresses" element={<AddressPage user={user} />} />
+          <Route path="/orders" element={<OrdersPage user={user} />} />
+          <Route path="/orders/:id" element={<OrderDetailPage user={user} />} />
+          <Route path="/wishlist" element={<WishlistPage user={user} />} />
+          <Route path="/checkout" element={<CheckoutPage user={user} />} />
+          <Route path="/checkout/payment/:orderId" element={<OrderPaymentPage user={user} />} />
+          <Route path="/payments" element={<PaymentsPage user={user} />} />
+          <Route path="/notifications" element={<NotificationsPage user={user} />} />
+          <Route path="/admin" element={<AdminDashboardPage user={user} />} />
+          <Route path="/admin/products" element={<AdminProductsPage user={user} />} />
+          <Route path="/admin/categories" element={<AdminCategoriesPage user={user} />} />
+          <Route path="/admin/users" element={<AdminUsersPage user={user} />} />
+          <Route path="/admin/coupons" element={<AdminCouponsPage user={user} />} />
+          <Route path="/admin/inventory" element={<AdminInventoryPage user={user} />} />
+          <Route path="/admin/banners" element={<AdminBannersPage user={user} />} />
+          <Route path="/admin/reviews" element={<AdminReviewsPage user={user} />} />
+          <Route path="/admin/orders" element={<AdminOrdersPage user={user} />} />
+          <Route path="/admin/payments" element={<AdminPaymentsPage user={user} />} />
+          <Route path="/profile" element={<ProfilePage user={user} onProfileUpdate={handleProfileUpdate} />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

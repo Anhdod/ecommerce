@@ -55,11 +55,12 @@ public class OrderController {
         public ResponseEntity<ApiResponse<CheckoutPreviewResponse>> getCheckoutPreview(
                         @RequestParam(required = false) ShippingMethod shippingMethod,
                         @RequestParam(required = false) Long addressId,
-                        @RequestParam(required = false) String couponCode) {
+                        @RequestParam(required = false) String couponCode,
+                        @RequestParam(required = false) List<Long> cartItemIds) {
                 return ResponseEntity.ok(
                                 ApiResponse.success("Lấy preview checkout thành công",
                                                 orderService.getCheckoutPreview(shippingMethod, addressId,
-                                                                couponCode)));
+                                                                couponCode, cartItemIds)));
         }
 
         @GetMapping
@@ -146,6 +147,16 @@ public class OrderController {
                 orderService.cancelOrder(orderId);
                 return ResponseEntity.ok(
                                 ApiResponse.success("Hủy đơn hàng thành công", null));
+        }
+
+        @PutMapping("/{orderId}/admin-cancel")
+        @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+        public ResponseEntity<ApiResponse<OrderResponse>> cancelOrderByAdmin(
+                        @PathVariable Long orderId,
+                        @RequestParam(required = false) String reason) {
+                return ResponseEntity.ok(
+                                ApiResponse.success("Admin hủy đơn hàng thành công",
+                                                orderService.cancelOrderByAdmin(orderId, reason)));
         }
 
         @PutMapping("/{orderId}/confirm-received")

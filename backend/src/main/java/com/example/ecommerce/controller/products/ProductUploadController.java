@@ -15,6 +15,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -45,6 +47,45 @@ public class ProductUploadController {
             @RequestParam("file") MultipartFile file) {
 
         return uploadImage(productId, file);
+    }
+
+    @PostMapping("/{productId}/images")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+    public ResponseEntity<ApiResponse<List<String>>> uploadProductImages(
+            @PathVariable Long productId,
+            @RequestParam("files") List<MultipartFile> files) {
+        if (files == null || files.isEmpty()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Vui lòng chọn ít nhất một ảnh"));
+        }
+        int currentCount = productService.getProductById(productId).getImageUrls().size();
+        if (currentCount + files.size() > 8) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Mỗi sản phẩm có tối đa 8 ảnh phụ"));
+        }
+
+        List<String> storedUrls = new ArrayList<>();
+        try {
+            for (MultipartFile file : files) {
+                validateImage(file);
+                storedUrls.add(storeFile(productId, file));
+            }
+            productService.addProductImages(productId, storedUrls);
+            return ResponseEntity.ok(ApiResponse.success("Tải gallery thành công", storedUrls));
+        } catch (Exception error) {
+            storedUrls.forEach(this::deletePhysicalFile);
+            return ResponseEntity.badRequest().body(ApiResponse.error("Không thể tải gallery: " + error.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{productId}/images")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+    public ResponseEntity<ApiResponse<String>> deleteGalleryImage(
+            @PathVariable Long productId,
+            @RequestParam String imageUrl) {
+        if (!productService.removeProductImage(productId, imageUrl)) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Ảnh không tồn tại trong gallery"));
+        }
+        deletePhysicalFile(imageUrl);
+        return ResponseEntity.ok(ApiResponse.success("Xóa ảnh gallery thành công", null));
     }
 
     // 3. Xóa ảnh
@@ -96,6 +137,25 @@ public class ProductUploadController {
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("Upload ảnh thất bại: " + e.getMessage()));
         }
+    }
+
+    private void validateImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File ảnh không được để trống");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("Chỉ chấp nhận file ảnh");
+        }
+    }
+
+    private String storeFile(Long productId, MultipartFile file) throws IOException {
+        Path uploadPath = Paths.get(uploadDir);
+        Files.createDirectories(uploadPath);
+        String extension = extractExtension(file.getOriginalFilename());
+        String newFileName = productId + "_" + UUID.randomUUID() + extension;
+        Files.copy(file.getInputStream(), uploadPath.resolve(newFileName), StandardCopyOption.REPLACE_EXISTING);
+        return "/uploads/products/" + newFileName;
     }
 
     private String extractExtension(String originalFilename) {
