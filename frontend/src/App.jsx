@@ -1,35 +1,45 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import NavBar from './components/NavBar';
 import api from './api';
 import './styles.css';
 
-const AuthPage = lazy(() => import('./pages/AuthPage'));
-const ProductListPage = lazy(() => import('./pages/ProductListPage'));
-const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'));
-const ProductReviewsPage = lazy(() => import('./pages/ProductReviewsPage'));
-const CartPage = lazy(() => import('./pages/CartPage'));
-const AddressPage = lazy(() => import('./pages/AddressPage'));
-const OrdersPage = lazy(() => import('./pages/OrdersPage'));
-const WishlistPage = lazy(() => import('./pages/WishlistPage'));
-const CheckoutPage = lazy(() => import('./pages/CheckoutPage'));
-const OrderPaymentPage = lazy(() => import('./pages/OrderPaymentPage'));
-const PaymentsPage = lazy(() => import('./pages/PaymentsPage'));
-const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
-const AdminProductsPage = lazy(() => import('./pages/AdminProductsPage'));
-const AdminCategoriesPage = lazy(() => import('./pages/AdminCategoriesPage'));
-const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
-const AdminCouponsPage = lazy(() => import('./pages/AdminCouponsPage'));
-const AdminInventoryPage = lazy(() => import('./pages/AdminInventoryPage'));
-const AdminBannersPage = lazy(() => import('./pages/AdminBannersPage'));
-const AdminReviewsPage = lazy(() => import('./pages/AdminReviewsPage'));
-const AdminOrdersPage = lazy(() => import('./pages/AdminOrdersPage'));
-const AdminPaymentsPage = lazy(() => import('./pages/AdminPaymentsPage'));
-const AdminExpensesPage = lazy(() => import('./pages/AdminExpensesPage'));
-const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
-const ProfilePage = lazy(() => import('./pages/ProfilePage'));
-const OrderDetailPage = lazy(() => import('./pages/OrderDetailPage'));
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+const AuthPage = lazy(() => import('./pages/auth/AuthPage'));
+const ProductListPage = lazy(() => import('./pages/catalog/ProductListPage'));
+const ProductDetailPage = lazy(() => import('./pages/catalog/ProductDetailPage'));
+const ProductReviewsPage = lazy(() => import('./pages/catalog/ProductReviewsPage'));
+const CartPage = lazy(() => import('./pages/checkout/CartPage'));
+const AddressPage = lazy(() => import('./pages/account/AddressPage'));
+const OrdersPage = lazy(() => import('./pages/account/OrdersPage'));
+const WishlistPage = lazy(() => import('./pages/account/WishlistPage'));
+const CheckoutPage = lazy(() => import('./pages/checkout/CheckoutPage'));
+const OrderPaymentPage = lazy(() => import('./pages/checkout/OrderPaymentPage'));
+const PaymentsPage = lazy(() => import('./pages/checkout/PaymentsPage'));
+const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'));
+const AdminProductsPage = lazy(() => import('./pages/admin/AdminProductsPage'));
+const AdminCategoriesPage = lazy(() => import('./pages/admin/AdminCategoriesPage'));
+const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'));
+const AdminCouponsPage = lazy(() => import('./pages/admin/AdminCouponsPage'));
+const AdminInventoryPage = lazy(() => import('./pages/admin/AdminInventoryPage'));
+const AdminBannersPage = lazy(() => import('./pages/admin/AdminBannersPage'));
+const AdminReviewsPage = lazy(() => import('./pages/admin/AdminReviewsPage'));
+const AdminOrdersPage = lazy(() => import('./pages/admin/AdminOrdersPage'));
+const AdminPaymentsPage = lazy(() => import('./pages/admin/AdminPaymentsPage'));
+const AdminExpensesPage = lazy(() => import('./pages/admin/AdminExpensesPage'));
+const NotificationsPage = lazy(() => import('./pages/account/NotificationsPage'));
+const ProfilePage = lazy(() => import('./pages/account/ProfilePage'));
+const OrderDetailPage = lazy(() => import('./pages/account/OrderDetailPage'));
+const NotFoundPage = lazy(() => import('./pages/system/NotFoundPage'));
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [pathname]);
+
+  return null;
+}
 
 function App() {
   const [user, setUser] = useState(null);
@@ -97,6 +107,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <NavBar user={user} onLogout={handleLogout} />
       {message && <div className="message page-notice">{message}</div>}
       <Suspense fallback={<div className="route-loading" role="status"><span /></div>}>

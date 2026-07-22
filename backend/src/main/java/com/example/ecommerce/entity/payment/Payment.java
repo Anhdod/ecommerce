@@ -28,6 +28,7 @@ public class Payment {
     private PaymentMethod paymentMethod;
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(20)")
     @Builder.Default
     private PaymentStatus status = PaymentStatus.PENDING;
 
@@ -36,6 +37,20 @@ public class Payment {
     private String transactionId; // Mã giao dịch giả lập
 
     private LocalDateTime paymentDate;
+
+    private String proofImageUrl;
+
+    private LocalDateTime submittedAt;
+
+    private LocalDateTime reviewedAt;
+
+    private LocalDateTime refundedAt;
+
+    @Column(length = 500)
+    private String rejectionReason;
+
+    @Column(length = 500)
+    private String refundReason;
 
     private String note; // Ghi chú (ví dụ: "Thanh toán thành công qua mock")
 

@@ -1,5 +1,7 @@
 # Ecommerce Fullstack
 
+[![CI](https://github.com/Anhdod/ecommerce/actions/workflows/ci.yml/badge.svg)](https://github.com/Anhdod/ecommerce/actions/workflows/ci.yml)
+
 Fullstack ecommerce application built with Spring Boot, React, MySQL, Redis, Docker, and GitHub Actions.
 
 ## Tech Stack
@@ -13,12 +15,17 @@ Fullstack ecommerce application built with Spring Boot, React, MySQL, Redis, Doc
 ## Features
 
 - User authentication with JWT access token and Redis-backed refresh token
+- Password change and email reset-code flows with Redis expiry
 - Product browsing, product detail, categories, wishlist, cart, checkout, orders, payments
+- Bank-transfer proof upload with admin approval, rejection reason, and resubmission flow
+- Admin full-refund flow before shipping with order cancellation, inventory restoration, and refund audit details
 - Admin dashboard with revenue, order status, top selling products, and top customers
 - Redis cache for admin dashboard data
+- Product variants with unique SKU, flexible attributes, per-variant pricing, images, cost and inventory
 - Swagger/OpenAPI API documentation
 - Docker Compose setup for backend, frontend, MySQL, and Redis
 - CI workflow for backend tests and frontend build
+- 22 focused unit tests for authentication, products, payment workflow, refunds, and dashboard profit calculations
 
 ## Project Structure
 
@@ -85,6 +92,12 @@ SPRING_PROFILES_ACTIVE=docker
 REDIS_HOST=redis
 REDIS_PORT=6379
 REDIS_HOST_PORT=6380
+MAIL_ENABLED=false
+PASSWORD_RESET_EXPOSE_CODE=true
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your_email@gmail.com
+MAIL_PASSWORD=your_google_app_password
 VITE_API_BASE_URL=http://localhost:8080
 FRONTEND_PORT=3000
 ```
@@ -100,3 +113,6 @@ GitHub Actions runs:
 
 - `.env`, logs, build outputs, uploaded files, and local token files are ignored by Git.
 - Refresh tokens are stored in Redis and removed on logout.
+- Password reset codes are stored as BCrypt hashes in Redis for 10 minutes and can only be used once.
+- Use a Google App Password for Gmail SMTP. Keep `MAIL_PASSWORD` only in the ignored `.env` or deployment secrets.
+- Set `MAIL_ENABLED=true` and `PASSWORD_RESET_EXPOSE_CODE=false` outside local demo environments.

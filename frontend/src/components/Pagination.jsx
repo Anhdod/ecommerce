@@ -16,13 +16,18 @@ export default function Pagination({
   onPageChange,
   label = 'mục',
   className = '',
+  scrollTargetId,
 }) {
   if (totalPages <= 1) return null;
 
   const changePage = (nextPage) => {
     if (nextPage < 0 || nextPage >= totalPages || nextPage === page) return;
     onPageChange(nextPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (scrollTargetId) {
+      document.getElementById(scrollTargetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   return (

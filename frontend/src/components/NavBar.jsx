@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, CreditCard, Heart, LayoutDashboard, LogIn, LogOut, Menu, Search, ShoppingBag, UserRound, X } from 'lucide-react';
+import { Bell, Heart, LayoutDashboard, LogIn, LogOut, Menu, Search, ShoppingBag, UserRound, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../api';
 import './NavBar.css';
@@ -8,13 +8,13 @@ import './NavBar.css';
 const navItems = [
   { to: '/', label: 'Trang chủ', end: true },
   { to: '/orders', label: 'Đơn hàng' },
-  { to: '/payments', label: 'Thanh toán', icon: CreditCard },
 ];
 
 export default function NavBar({ user, onLogout }) {
   const canManage = user?.role === 'ADMIN' || user?.role === 'STAFF';
   const navigate = useNavigate();
   const location = useLocation();
+  const isAdminArea = location.pathname.startsWith('/admin');
   const [unreadCount, setUnreadCount] = useState(0);
   const [keyword, setKeyword] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -61,7 +61,7 @@ export default function NavBar({ user, onLogout }) {
         </Link>
 
         <nav className={`topnav ${menuOpen ? 'open' : ''}`} aria-label="Main navigation">
-          {navItems.map((item) => (
+          {navItems.filter((item) => !isAdminArea || item.to === '/').map((item) => (
             <NavLink to={item.to} end={item.end} key={item.label}>
               {item.icon && <item.icon size={15} />} {item.label}
             </NavLink>

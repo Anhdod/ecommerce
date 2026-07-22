@@ -7,9 +7,11 @@ import com.example.ecommerce.entity.auth.User;
 import com.example.ecommerce.entity.inventory.StockMovement;
 import com.example.ecommerce.entity.inventory.StockMovementType;
 import com.example.ecommerce.entity.product.Product;
+import com.example.ecommerce.entity.product.ProductVariant;
 import com.example.ecommerce.repository.auth.UserRepository;
 import com.example.ecommerce.repository.inventory.StockMovementRepository;
 import com.example.ecommerce.repository.products.ProductRepository;
+import com.example.ecommerce.repository.products.ProductVariantRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +25,9 @@ public class InventoryService {
 
     @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private ProductVariantRepository productVariantRepository;
 
     @Autowired
     private StockMovementRepository stockMovementRepository;
@@ -58,6 +63,10 @@ public class InventoryService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Khong tim thay san pham"));
 
+        if (product.getVariants() != null && product.getVariants().stream().anyMatch(ProductVariant::isActive)) {
+            throw new RuntimeException("Sản phẩm có biến thể; hãy điều chỉnh tồn kho trong phần biến thể sản phẩm");
+        }
+
         int previousQuantity = product.getStockQuantity();
         int newQuantity = previousQuantity + request.getQuantityChange();
         if (newQuantity < 0) {
@@ -83,14 +92,33 @@ public class InventoryService {
 
     @Transactional
     public void recordMovement(Product product, int quantityChange, StockMovementType type, String reason, String note) {
+        recordMovement(product, null, quantityChange, type, reason, note);
+    }
+
+    @Transactional
+    public void recordMovement(Product product, ProductVariant variant, int quantityChange, StockMovementType type, String reason, String note) {
         int previousQuantity = product.getStockQuantity();
-        int newQuantity = previousQuantity + quantityChange;
-        if (newQuantity < 0) {
-            throw new RuntimeException("So luong ton kho khong du");
+        if (variant != null) {
+            int newVariantQuantity = variant.getStockQuantity() + quantityChange;
+            if (newVariantQuantity < 0) {
+                throw new RuntimeException("Biến thể " + variant.getSku() + " không đủ tồn kho");
+            }
+            variant.setStockQuantity(newVariantQuantity);
+            productVariantRepository.save(variant);
+            product.setStockQuantity(product.getVariants().stream()
+                    .filter(ProductVariant::isActive)
+                    .mapToInt(ProductVariant::getStockQuantity)
+                    .sum());
+        } else {
+            int newQuantity = previousQuantity + quantityChange;
+            if (newQuantity < 0) {
+                throw new RuntimeException("So luong ton kho khong du");
+            }
+            product.setStockQuantity(newQuantity);
         }
 
-        product.setStockQuantity(newQuantity);
         productRepository.save(product);
+        int newQuantity = product.getStockQuantity();
 
         StockMovement movement = StockMovement.builder()
                 .product(product)

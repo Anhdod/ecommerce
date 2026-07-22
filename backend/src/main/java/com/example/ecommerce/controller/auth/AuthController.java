@@ -4,6 +4,9 @@ import com.example.ecommerce.dto.ApiResponse;
 import com.example.ecommerce.dto.auth.AuthRequest;
 import com.example.ecommerce.dto.auth.AuthResponse;
 import com.example.ecommerce.dto.auth.RefreshTokenRequest;
+import com.example.ecommerce.dto.auth.ForgotPasswordRequest;
+import com.example.ecommerce.dto.auth.PasswordResetChallengeResponse;
+import com.example.ecommerce.dto.auth.ResetPasswordRequest;
 import com.example.ecommerce.service.auth.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,5 +57,20 @@ public class AuthController {
             return ResponseEntity.ok(ApiResponse.success("Dang xuat thanh cong", null));
         }
         return ResponseEntity.status(401).body(ApiResponse.error("Refresh token khong hop le"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<PasswordResetChallengeResponse>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        PasswordResetChallengeResponse response = authService.requestPasswordReset(request);
+        return ResponseEntity.ok(ApiResponse.success(
+                "Mã đặt lại mật khẩu đã được gửi đến email của bạn.", response));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Đặt lại mật khẩu thành công", null));
     }
 }

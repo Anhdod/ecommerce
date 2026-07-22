@@ -2,6 +2,7 @@ package com.example.ecommerce.config;
 
 import com.example.ecommerce.entity.product.Category;
 import com.example.ecommerce.entity.product.Product;
+import com.example.ecommerce.entity.product.ProductVariant;
 import com.example.ecommerce.repository.products.CategoryRepository;
 import com.example.ecommerce.repository.products.ProductRepository;
 import org.springframework.boot.CommandLineRunner;
@@ -74,11 +75,110 @@ public class DemoDataInitializer {
             Product existing = existingProducts.get(normalize(seed.name()));
             if (existing == null) {
                 Product created = productRepository.save(createProduct(seed, categories.get(normalize(seed.category()))));
+                ensureVariants(created, productRepository);
+                ensureCapacityVariants(created, productRepository);
                 existingProducts.put(normalize(created.getName()), created);
-            } else if (fillMissingDetails(existing, seed, categories.get(normalize(seed.category())))) {
-                productRepository.save(existing);
+            } else {
+                if (fillMissingDetails(existing, seed, categories.get(normalize(seed.category())))) {
+                    productRepository.save(existing);
+                }
+                ensureVariants(existing, productRepository);
+                ensureCapacityVariants(existing, productRepository);
             }
         }
+    }
+
+    private void ensureVariants(Product product, ProductRepository productRepository) {
+        if ((product.getVariants() != null && !product.getVariants().isEmpty())
+                || product.getColors() == null || product.getColors().isEmpty()) {
+            return;
+        }
+
+        int variantCount = product.getColors().size();
+        int baseStock = product.getStockQuantity() / variantCount;
+        int remainder = product.getStockQuantity() % variantCount;
+        if (product.getVariants() == null) {
+            product.setVariants(new ArrayList<>());
+        }
+        for (int index = 0; index < variantCount; index++) {
+            String color = product.getColors().get(index);
+            Map<String, String> attributes = new LinkedHashMap<>();
+            attributes.put("Màu sắc", color);
+            product.getVariants().add(ProductVariant.builder()
+                    .product(product)
+                    .sku("P" + product.getId() + "-" + (index + 1))
+                    .name(color)
+                    .attributes(attributes)
+                    .price(product.getPrice())
+                    .costPrice(product.getCostPrice() == null ? BigDecimal.ZERO : product.getCostPrice())
+                    .stockQuantity(baseStock + (index < remainder ? 1 : 0))
+                    .imageUrl(product.getImageUrl())
+                    .active(true)
+                    .build());
+        }
+        productRepository.save(product);
+    }
+
+    private void ensureCapacityVariants(Product product, ProductRepository productRepository) {
+        List<String> capacities = switch (product.getCategory() == null ? "" : product.getCategory().getName()) {
+            case "Phones" -> List.of("128GB", "256GB");
+            case "Laptops" -> List.of("512GB", "1TB");
+            case "Tablets" -> List.of("128GB", "256GB");
+            default -> List.of();
+        };
+        if (capacities.isEmpty() || product.getVariants() == null || product.getColors() == null) {
+            return;
+        }
+
+        List<ProductVariant> activeVariants = product.getVariants().stream()
+                .filter(ProductVariant::isActive)
+                .toList();
+        if (activeVariants.size() != product.getColors().size()
+                || activeVariants.stream().anyMatch(variant -> !variant.getSku().matches("P" + product.getId() + "-\\d+"))) {
+            return;
+        }
+
+        List<ProductVariant> additions = new ArrayList<>();
+        int nextSku = activeVariants.size() + 1;
+        BigDecimal priceStep = "Laptops".equals(product.getCategory().getName())
+                ? new BigDecimal("3000000")
+                : new BigDecimal("2000000");
+        BigDecimal costStep = priceStep.multiply(new BigDecimal("0.70")).setScale(0, RoundingMode.HALF_UP);
+
+        for (ProductVariant baseVariant : activeVariants) {
+            String color = baseVariant.getAttributes().entrySet().stream()
+                    .filter(entry -> normalize(entry.getKey()).equals("màu sắc")
+                            || normalize(entry.getKey()).equals("mau sac")
+                            || normalize(entry.getKey()).equals("color"))
+                    .map(Map.Entry::getValue)
+                    .findFirst()
+                    .orElse(baseVariant.getName());
+            int originalStock = baseVariant.getStockQuantity();
+            int firstStock = (originalStock + 1) / 2;
+
+            baseVariant.getAttributes().clear();
+            baseVariant.getAttributes().put("Màu sắc", color);
+            baseVariant.getAttributes().put("Dung lượng", capacities.get(0));
+            baseVariant.setName(color + " / " + capacities.get(0));
+            baseVariant.setStockQuantity(firstStock);
+
+            ProductVariant secondVariant = ProductVariant.builder()
+                    .product(product)
+                    .sku("P" + product.getId() + "-" + nextSku++)
+                    .name(color + " / " + capacities.get(1))
+                    .attributes(new LinkedHashMap<>(Map.of(
+                            "Màu sắc", color,
+                            "Dung lượng", capacities.get(1))))
+                    .price(baseVariant.getPrice().add(priceStep))
+                    .costPrice(baseVariant.getCostPrice().add(costStep))
+                    .stockQuantity(originalStock - firstStock)
+                    .imageUrl(baseVariant.getImageUrl())
+                    .active(true)
+                    .build();
+            additions.add(secondVariant);
+        }
+        product.getVariants().addAll(additions);
+        productRepository.save(product);
     }
 
     private boolean fillMissingDetails(Product product, ProductSeed seed, Category category) {

@@ -5,6 +5,7 @@ import com.example.ecommerce.dto.auth.AdminUserUpdateRequest;
 import com.example.ecommerce.dto.auth.AdminUserCreateRequest;
 import com.example.ecommerce.dto.auth.UserProfileResponse;
 import com.example.ecommerce.dto.auth.UserUpdateRequest;
+import com.example.ecommerce.dto.auth.ChangePasswordRequest;
 import com.example.ecommerce.entity.auth.Role;
 import com.example.ecommerce.service.auth.UserService;
 import jakarta.validation.Valid;
@@ -35,6 +36,14 @@ public class UserController {
             @Valid @RequestBody UserUpdateRequest request) {
         UserProfileResponse profile = userService.updateCurrentUserProfile(request);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin người dùng thành công", profile));
+    }
+
+    @PutMapping("/me/password")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> changeMyPassword(
+            @Valid @RequestBody ChangePasswordRequest request) {
+        userService.changeCurrentUserPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Đổi mật khẩu thành công", null));
     }
     @GetMapping("/admin")
     @PreAuthorize("hasRole('ADMIN')")

@@ -30,9 +30,10 @@ public class CartController {
     public ResponseEntity<ApiResponse<CartResponse>> addToCart(
             @PathVariable Long productId,
             @RequestParam(defaultValue = "1") int quantity,
+            @RequestParam(required = false) Long variantId,
             @RequestParam(required = false) String selectedColor) {
 
-        CartResponse cart = cartService.addToCart(productId, quantity, selectedColor);
+        CartResponse cart = cartService.addToCart(productId, quantity, variantId, selectedColor);
         return ResponseEntity.ok(ApiResponse.success("Thêm vào giỏ hàng thành công", cart));
     }
 
@@ -66,5 +67,15 @@ public class CartController {
         return ResponseEntity.ok(
                 ApiResponse.success("Cập nhật màu sắc thành công",
                         cartService.updateSelectedColor(cartItemId, selectedColor)));
+    }
+
+    @PutMapping("/update-variant/{cartItemId}")
+    @PreAuthorize("hasAnyRole('USER','STAFF','ADMIN')")
+    public ResponseEntity<ApiResponse<CartResponse>> updateSelectedVariant(
+            @PathVariable Long cartItemId,
+            @RequestParam Long variantId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Cập nhật biến thể thành công",
+                cartService.updateSelectedVariant(cartItemId, variantId)));
     }
 }

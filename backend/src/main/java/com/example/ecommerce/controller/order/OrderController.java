@@ -7,6 +7,8 @@ import com.example.ecommerce.dto.order.CheckoutRequest;
 import com.example.ecommerce.dto.order.OrderResponse;
 import com.example.ecommerce.dto.order.OrderStatusHistoryResponse;
 import com.example.ecommerce.dto.order.OrderUpdateRequest;
+import com.example.ecommerce.dto.order.ShippingUpdateRequest;
+import com.example.ecommerce.dto.payment.RefundRequest;
 import com.example.ecommerce.entity.order.OrderStatus;
 import com.example.ecommerce.entity.order.ShippingMethod;
 import com.example.ecommerce.entity.payment.PaymentMethod;
@@ -142,6 +144,16 @@ public class OrderController {
                                                 orderService.updateTrackingCode(id, trackingCode)));
         }
 
+        @PutMapping("/{id}/shipping")
+        @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+        public ResponseEntity<ApiResponse<OrderResponse>> updateShipping(
+                        @PathVariable Long id,
+                        @Valid @RequestBody ShippingUpdateRequest request) {
+                return ResponseEntity.ok(ApiResponse.success(
+                                "Cập nhật thông tin vận chuyển thành công",
+                                orderService.updateShipping(id, request)));
+        }
+
         @PutMapping("/{id}/costs")
         @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
         public ResponseEntity<ApiResponse<OrderResponse>> updateOrderCosts(
@@ -168,6 +180,16 @@ public class OrderController {
                 return ResponseEntity.ok(
                                 ApiResponse.success("Admin hủy đơn hàng thành công",
                                                 orderService.cancelOrderByAdmin(orderId, reason)));
+        }
+
+        @PutMapping("/{orderId}/refund-and-cancel")
+        @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+        public ResponseEntity<ApiResponse<OrderResponse>> refundAndCancelByAdmin(
+                        @PathVariable Long orderId,
+                        @Valid @RequestBody RefundRequest request) {
+                return ResponseEntity.ok(
+                                ApiResponse.success("Hoàn tiền và hủy đơn hàng thành công",
+                                                orderService.refundAndCancelByAdmin(orderId, request)));
         }
 
         @PutMapping("/{orderId}/confirm-received")

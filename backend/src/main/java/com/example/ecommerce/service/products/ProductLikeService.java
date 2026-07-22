@@ -2,6 +2,7 @@ package com.example.ecommerce.service.products;
 
 import com.example.ecommerce.dto.ApiResponse;
 import com.example.ecommerce.dto.products.ProductResponse;
+import com.example.ecommerce.dto.products.ProductVariantResponse;
 import com.example.ecommerce.entity.auth.User;
 import com.example.ecommerce.entity.product.Product;
 import com.example.ecommerce.entity.product.ProductLike;
@@ -15,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -113,6 +116,23 @@ public class ProductLikeService {
                 .price(product.getPrice())
                 .stockQuantity(product.getStockQuantity())
                 .imageUrl(product.getImageUrl())
+                .imageUrls(product.getImageUrls() == null ? List.of() : new ArrayList<>(product.getImageUrls()))
+                .brand(product.getBrand())
+                .warrantyMonths(product.getWarrantyMonths())
+                .colors(product.getColors() == null ? List.of() : new ArrayList<>(product.getColors()))
+                .variants(product.getVariants() == null ? List.of() : product.getVariants().stream()
+                        .filter(variant -> variant.isActive())
+                        .map(variant -> ProductVariantResponse.builder()
+                                .id(variant.getId())
+                                .sku(variant.getSku())
+                                .name(variant.getName())
+                                .attributes(new LinkedHashMap<>(variant.getAttributes()))
+                                .price(variant.getPrice())
+                                .stockQuantity(variant.getStockQuantity())
+                                .imageUrl(variant.getImageUrl())
+                                .active(true)
+                                .build())
+                        .toList())
                 .categoryId(product.getCategory().getId())
                 .categoryName(product.getCategory().getName())
                 .active(product.isActive())

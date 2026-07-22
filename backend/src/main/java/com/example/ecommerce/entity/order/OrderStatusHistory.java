@@ -23,9 +23,11 @@ public class OrderStatusHistory {
     private Order order;
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(20)")
     private OrderStatus oldStatus;
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(20)")
     private OrderStatus newStatus;
 
     private String changedBy;

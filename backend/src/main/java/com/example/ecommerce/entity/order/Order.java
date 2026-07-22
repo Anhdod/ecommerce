@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,6 +32,7 @@ public class Order {
     private List<OrderItem> items = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(20)")
     @Builder.Default
     private OrderStatus status = OrderStatus.PENDING;
 
@@ -69,6 +71,10 @@ public class Order {
     private String shippingAddress;
     private String phoneNumber;
     private String trackingCode;
+    private String carrier;
+    private LocalDate estimatedDeliveryDate;
+    private LocalDateTime shippedAt;
+    private LocalDateTime deliveredAt;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

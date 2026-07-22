@@ -2,12 +2,14 @@ package com.example.ecommerce.service.auth;
 
 import com.example.ecommerce.dto.auth.UserProfileResponse;
 import com.example.ecommerce.dto.auth.UserUpdateRequest;
+import com.example.ecommerce.dto.auth.ChangePasswordRequest;
 import com.example.ecommerce.dto.auth.AdminUserCreateRequest;
 import com.example.ecommerce.dto.auth.AdminUserUpdateRequest;
 import com.example.ecommerce.entity.auth.Role;
 import com.example.ecommerce.entity.auth.User;
 import com.example.ecommerce.repository.auth.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,9 @@ public class UserService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     public UserProfileResponse getCurrentUserProfile() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -51,6 +56,27 @@ public class UserService {
 
         User updated = userRepository.save(user);
         return convertToResponse(updated);
+    }
+
+    @Transactional
+    public void changeCurrentUserPassword(ChangePasswordRequest request) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new RuntimeException("Mật khẩu hiện tại không đúng");
+        }
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new RuntimeException("Mật khẩu xác nhận không khớp");
+        }
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new RuntimeException("Mật khẩu mới phải khác mật khẩu hiện tại");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        redisTemplate.delete("auth:refresh:" + username);
     }
 
     public List<UserProfileResponse> getAllUsers() {

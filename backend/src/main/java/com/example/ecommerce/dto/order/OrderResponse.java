@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 import com.example.ecommerce.entity.order.OrderStatus;
@@ -45,5 +46,9 @@ public class OrderResponse {
     private String shippingAddress;
     private String phoneNumber;
     private String trackingCode;
+    private String carrier;
+    private LocalDate estimatedDeliveryDate;
+    private LocalDateTime shippedAt;
+    private LocalDateTime deliveredAt;
     private LocalDateTime createdAt;
 }

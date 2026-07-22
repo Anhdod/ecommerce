@@ -25,6 +25,7 @@ public class ProductResponse {
     private String brand;
     private Integer warrantyMonths;
     private List<String> colors;
+    private List<ProductVariantResponse> variants;
     private Long categoryId;
     private String categoryName;
     private boolean active;

@@ -5,6 +5,7 @@ import lombok.*;
 import java.math.BigDecimal;
 
 import com.example.ecommerce.entity.product.Product;
+import com.example.ecommerce.entity.product.ProductVariant;
 
 @Entity
 @Table(name = "cart_items")
@@ -26,6 +27,10 @@ public class CartItem {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_variant_id")
+    private ProductVariant productVariant;
 
     private int quantity;
 

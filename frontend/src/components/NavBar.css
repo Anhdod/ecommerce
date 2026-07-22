@@ -201,14 +201,14 @@
 
 .login-link {
   display: inline-flex;
-  min-height: 40px;
+  min-height: 34px;
   align-items: center;
-  gap: 7px;
-  padding: 0 14px;
-  border-radius: 12px;
+  gap: 5px;
+  padding: 0 10px;
+  border-radius: 8px;
   background: #2563eb;
   color: #fff;
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 650;
   text-decoration: none;
   box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);

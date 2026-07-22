@@ -75,7 +75,9 @@ public class AdminDashboardService {
                         .divide(totalRevenue, 2, RoundingMode.HALF_UP);
 
         long totalPaidPayments = paidPayments.size();
-        long totalPendingPayments = paymentRepository.findByStatus(PaymentStatus.PENDING).size();
+        long totalPendingPayments = paymentRepository.findByStatus(PaymentStatus.PENDING).size()
+                + paymentRepository.findByStatus(PaymentStatus.SUBMITTED).size()
+                + paymentRepository.findByStatus(PaymentStatus.REJECTED).size();
 
         java.util.List<com.example.ecommerce.dto.admin.TopSellingProductResponse> topSelling = orderItemRepository
                 .findTopSellingProducts(org.springframework.data.domain.PageRequest.of(0, 5));

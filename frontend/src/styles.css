@@ -107,9 +107,10 @@ textarea {
 button {
   border: none;
   border-radius: 8px;
-  padding: 0.95rem 1rem;
+  padding: 0.5rem 0.75rem;
   background: var(--primary);
   color: white;
+  font-size: 0.75rem;
   cursor: pointer;
   transition: background 0.2s ease;
 }
@@ -124,7 +125,8 @@ button:hover {
   justify-content: center;
   text-decoration: none;
   border-radius: 8px;
-  padding: 0.95rem 1rem;
+  min-height: 34px;
+  padding: 0.5rem 0.75rem;
   background: var(--primary);
   color: white;
   cursor: pointer;
@@ -135,13 +137,15 @@ button:hover {
 }
 
 button.small {
-  padding: 0.6rem 0.8rem;
+  min-height: 30px;
+  padding: 0.35rem 0.6rem;
   background: #f3f4f6;
   color: var(--text);
 }
 
 .button.small {
-  padding: 0.7rem 0.85rem;
+  min-height: 30px;
+  padding: 0.35rem 0.6rem;
   background: #f3f4f6;
   color: var(--text);
 }
@@ -175,7 +179,7 @@ button.small.danger {
 }
 
 .button-group button {
-  min-width: 120px;
+  min-width: 92px;
 }
 
 .search-group input {

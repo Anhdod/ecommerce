@@ -2,11 +2,15 @@ package com.example.ecommerce.service.products;
 
 import com.example.ecommerce.dto.products.ProductRequest;
 import com.example.ecommerce.dto.products.ProductResponse;
+import com.example.ecommerce.dto.products.ProductVariantRequest;
+import com.example.ecommerce.dto.products.ProductVariantResponse;
 import com.example.ecommerce.entity.product.Category;
 import com.example.ecommerce.entity.product.Product;
+import com.example.ecommerce.entity.product.ProductVariant;
 import com.example.ecommerce.repository.order.OrderItemRepository;
 import com.example.ecommerce.repository.products.CategoryRepository;
 import com.example.ecommerce.repository.products.ProductRepository;
+import com.example.ecommerce.repository.products.ProductVariantRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -19,14 +23,22 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class ProductService {
 
     @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private ProductVariantRepository productVariantRepository;
 
     @Autowired
     private CategoryRepository categoryRepository;
@@ -66,6 +78,10 @@ public class ProductService {
                 .build();
 
         Product savedProduct = productRepository.save(product);
+        if (request.getVariants() != null) {
+            syncVariants(savedProduct, request.getVariants());
+            savedProduct = productRepository.save(savedProduct);
+        }
         return convertToResponse(savedProduct);
     }
 
@@ -169,6 +185,9 @@ public class ProductService {
         if (request.getFeatured() != null) {
             product.setFeatured(request.getFeatured());
         }
+        if (request.getVariants() != null) {
+            syncVariants(product, request.getVariants());
+        }
 
         Product updatedProduct = productRepository.save(product);
         return convertToResponse(updatedProduct);
@@ -249,18 +268,24 @@ public class ProductService {
     }
 
     private ProductResponse convertToResponse(Product product) {
+        boolean manager = canViewCostPrice();
+        List<ProductVariantResponse> variants = product.getVariants() == null ? List.of() : product.getVariants().stream()
+                .filter(variant -> manager || variant.isActive())
+                .map(variant -> toVariantResponse(variant, manager))
+                .toList();
         return ProductResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
                 .description(product.getDescription())
                 .price(product.getPrice())
-                .costPrice(canViewCostPrice() ? product.getCostPrice() : null)
+                .costPrice(manager ? product.getCostPrice() : null)
                 .stockQuantity(product.getStockQuantity())
                 .imageUrl(product.getImageUrl())
                 .imageUrls(product.getImageUrls() == null ? List.of() : new ArrayList<>(product.getImageUrls()))
                 .brand(product.getBrand())
                 .warrantyMonths(product.getWarrantyMonths())
                 .colors(product.getColors() == null ? List.of() : new ArrayList<>(product.getColors()))
+                .variants(variants)
                 .categoryId(product.getCategory().getId())
                 .categoryName(product.getCategory().getName())
                 .active(product.isActive())
@@ -272,6 +297,147 @@ public class ProductService {
                 .isLikedByCurrentUser(productLikeService.isLikedByCurrentUser(product.getId()))
                 .salesCount(orderItemRepository.sumSoldQuantityByProductId(product.getId()))
                 .build();
+    }
+
+    private void syncVariants(Product product, List<ProductVariantRequest> requests) {
+        if (product.getVariants() == null) {
+            product.setVariants(new ArrayList<>());
+        }
+
+        Map<Long, ProductVariant> existingById = product.getVariants().stream()
+                .filter(variant -> variant.getId() != null)
+                .collect(Collectors.toMap(ProductVariant::getId, variant -> variant));
+        Set<Long> retainedIds = new LinkedHashSet<>();
+        Set<String> requestSkus = new LinkedHashSet<>();
+
+        for (ProductVariantRequest request : requests) {
+            String sku = normalizeSku(request.getSku());
+            if (!requestSkus.add(sku)) {
+                throw new RuntimeException("SKU bị trùng trong danh sách biến thể: " + sku);
+            }
+
+            ProductVariant variant;
+            if (request.getId() == null) {
+                variant = new ProductVariant();
+                variant.setProduct(product);
+                product.getVariants().add(variant);
+            } else {
+                variant = existingById.get(request.getId());
+                if (variant == null) {
+                    throw new RuntimeException("Biến thể không thuộc sản phẩm này: " + request.getId());
+                }
+                retainedIds.add(variant.getId());
+            }
+
+            productVariantRepository.findBySkuIgnoreCase(sku)
+                    .filter(found -> variant.getId() == null || !found.getId().equals(variant.getId()))
+                    .ifPresent(found -> {
+                        throw new RuntimeException("SKU đã tồn tại: " + sku);
+                    });
+
+            Map<String, String> attributes = normalizeAttributes(request.getAttributes());
+            variant.setSku(sku);
+            variant.setName(normalizeVariantName(request.getName(), attributes, sku));
+            if (variant.getAttributes() == null) {
+                variant.setAttributes(attributes);
+            } else {
+                variant.getAttributes().clear();
+                variant.getAttributes().putAll(attributes);
+            }
+            variant.setPrice(request.getPrice());
+            variant.setCostPrice(request.getCostPrice());
+            variant.setStockQuantity(request.getStockQuantity());
+            variant.setImageUrl(normalizeText(request.getImageUrl()));
+            variant.setActive(request.getActive() == null || request.getActive());
+        }
+
+        product.getVariants().stream()
+                .filter(variant -> variant.getId() != null && !retainedIds.contains(variant.getId()))
+                .forEach(variant -> variant.setActive(false));
+
+        refreshProductFromVariants(product);
+    }
+
+    private void refreshProductFromVariants(Product product) {
+        List<ProductVariant> activeVariants = product.getVariants().stream()
+                .filter(ProductVariant::isActive)
+                .toList();
+        if (activeVariants.isEmpty()) {
+            return;
+        }
+
+        product.setPrice(activeVariants.stream().map(ProductVariant::getPrice).min(BigDecimal::compareTo).orElse(product.getPrice()));
+        product.setCostPrice(activeVariants.stream().map(ProductVariant::getCostPrice).min(BigDecimal::compareTo).orElse(product.getCostPrice()));
+        product.setStockQuantity(activeVariants.stream().mapToInt(ProductVariant::getStockQuantity).sum());
+
+        List<String> colors = activeVariants.stream()
+                .map(ProductVariant::getAttributes)
+                .map(this::findColorAttribute)
+                .filter(value -> value != null && !value.isBlank())
+                .distinct()
+                .toList();
+        if (product.getColors() == null) {
+            product.setColors(new ArrayList<>());
+        } else {
+            product.getColors().clear();
+        }
+        product.getColors().addAll(colors);
+    }
+
+    private ProductVariantResponse toVariantResponse(ProductVariant variant, boolean includeCost) {
+        return ProductVariantResponse.builder()
+                .id(variant.getId())
+                .sku(variant.getSku())
+                .name(variant.getName())
+                .attributes(new LinkedHashMap<>(variant.getAttributes()))
+                .price(variant.getPrice())
+                .costPrice(includeCost ? variant.getCostPrice() : null)
+                .stockQuantity(variant.getStockQuantity())
+                .imageUrl(variant.getImageUrl())
+                .active(variant.isActive())
+                .build();
+    }
+
+    private String normalizeSku(String sku) {
+        if (sku == null || sku.isBlank()) {
+            throw new RuntimeException("SKU không được để trống");
+        }
+        return sku.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private Map<String, String> normalizeAttributes(Map<String, String> attributes) {
+        Map<String, String> normalized = new LinkedHashMap<>();
+        if (attributes == null) {
+            return normalized;
+        }
+        attributes.forEach((key, value) -> {
+            if (key != null && !key.isBlank() && value != null && !value.isBlank()) {
+                normalized.put(key.trim(), value.trim());
+            }
+        });
+        return normalized;
+    }
+
+    private String normalizeVariantName(String name, Map<String, String> attributes, String sku) {
+        if (name != null && !name.isBlank()) {
+            return name.trim();
+        }
+        String generated = String.join(" / ", attributes.values());
+        return generated.isBlank() ? sku : generated;
+    }
+
+    private String findColorAttribute(Map<String, String> attributes) {
+        if (attributes == null) {
+            return null;
+        }
+        return attributes.entrySet().stream()
+                .filter(entry -> {
+                    String key = entry.getKey().toLowerCase(Locale.ROOT);
+                    return key.equals("màu sắc") || key.equals("mau sac") || key.equals("màu") || key.equals("color");
+                })
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
     }
 
     private boolean canViewCostPrice() {

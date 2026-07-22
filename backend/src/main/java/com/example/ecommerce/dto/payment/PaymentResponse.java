@@ -23,5 +23,11 @@ public class PaymentResponse {
     private BigDecimal amount;
     private String transactionId;
     private LocalDateTime paymentDate;
+    private String proofImageUrl;
+    private LocalDateTime submittedAt;
+    private LocalDateTime reviewedAt;
+    private LocalDateTime refundedAt;
+    private String rejectionReason;
+    private String refundReason;
     private String note;
 }

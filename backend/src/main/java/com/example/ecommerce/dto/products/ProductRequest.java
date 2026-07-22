@@ -1,5 +1,6 @@
 package com.example.ecommerce.dto.products;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
@@ -41,6 +42,9 @@ public class ProductRequest {
     private Integer warrantyMonths;
 
     private List<@Size(max = 50, message = "Tên màu tối đa 50 ký tự") String> colors;
+
+    @Valid
+    private List<ProductVariantRequest> variants;
 
     private Boolean featured;
 }
